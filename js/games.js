@@ -1,20 +1,22 @@
 const Games = {
     current: null,
     
-    init() {
-        this.loadStats();
+    async init() {
+        await this.loadStats();
     },
     
     open(gameId) {
         this.current = gameId;
+        
+        if (gameId === 'tod') {
+            document.getElementById('tod-overlay').classList.add('show');
+            return;
+        }
+        
         const overlay = document.getElementById('game-overlay');
         overlay.classList.add('show');
         
         switch(gameId) {
-            case 'tod':
-                overlay.classList.remove('show');
-                document.getElementById('tod-overlay').classList.add('show');
-                break;
             case 'tictactoe': TicTacToe.init(); break;
             case 'memory': MemoryGame.init(); break;
             case 'rps': RPS.init(); break;
@@ -33,10 +35,10 @@ const Games = {
     
     async recordResult(game, result) {
         try {
-            await API.getData('game_stats_update', { game, result });
+            await API.updateGameStats(game, result);
             this.loadStats();
         } catch (err) {
-            console.error(err);
+            console.error('Record result error:', err);
         }
     },
     
@@ -45,11 +47,11 @@ const Games = {
         if (!el) return;
         
         try {
-            const data = await API.getData('game_stats_get');
+            const data = await API.getGameStats();
             const stats = data.stats || [];
             
             if (stats.length === 0) {
-                el.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem;">No games played yet</div>';
+                el.innerHTML = '<div style="color:#666; font-size:0.8rem;">No games played yet</div>';
                 return;
             }
             
@@ -69,11 +71,12 @@ const Games = {
     }
 };
 
-// بازی واکنش سریع
+// ============ بازی واکنش سریع ============
 const Reaction = {
     startTime: 0,
     timer: null,
-    state: 'waiting', // waiting, ready, go, result
+    state: 'waiting',
+    resultTime: 0,
     
     init() {
         document.getElementById('game-title').textContent = '⚡ REFLEX_TEST';
@@ -86,49 +89,38 @@ const Reaction = {
         let html = '';
         
         if (this.state === 'waiting') {
-            html = `
-                <div style="text-align:center; padding:40px 20px;">
-                    <div style="font-size:3rem; margin-bottom:20px;">⚡</div>
-                    <div style="color:var(--cyber-cyan); margin-bottom:20px;">READY YOUR FINGER</div>
-                    <button class="cyber-btn" onclick="Reaction.start()">START</button>
-                </div>
-            `;
+            html = `<div style="text-align:center; padding:40px 20px;">
+                <div style="font-size:3rem; margin-bottom:20px;">⚡</div>
+                <div style="color:var(--cyber-cyan); margin-bottom:20px;">READY YOUR FINGER</div>
+                <button class="cyber-btn" onclick="Reaction.start()">START</button>
+            </div>`;
         } else if (this.state === 'ready') {
-            html = `
-                <div style="text-align:center; padding:80px 20px; background:var(--cyber-red); min-height:300px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:10px;">
-                    <div style="font-size:2rem; color:white; font-weight:900;">WAIT FOR GREEN...</div>
-                    <div style="color:white; margin-top:10px;">DON'T CLICK YET!</div>
-                </div>
-            `;
+            html = `<div onclick="Reaction.tooEarly()" style="text-align:center; padding:80px 20px; background:var(--cyber-red); min-height:300px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:10px; cursor:pointer;">
+                <div style="font-size:2rem; color:white; font-weight:900;">WAIT FOR GREEN...</div>
+                <div style="color:white; margin-top:10px;">DON'T CLICK YET!</div>
+            </div>`;
         } else if (this.state === 'go') {
-            html = `
-                <div onclick="Reaction.click()" style="text-align:center; padding:80px 20px; background:var(--cyber-green); min-height:300px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:10px; cursor:pointer;">
-                    <div style="font-size:3rem; color:black; font-weight:900;">CLICK NOW!</div>
-                </div>
-            `;
+            html = `<div onclick="Reaction.click()" style="text-align:center; padding:80px 20px; background:var(--cyber-green); min-height:300px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:10px; cursor:pointer;">
+                <div style="font-size:3rem; color:black; font-weight:900;">CLICK NOW!</div>
+            </div>`;
         } else if (this.state === 'result') {
             const time = this.resultTime;
-            let rating = '🐢 SLOW';
-            let color = 'var(--cyber-pink)';
+            let rating = '🐢 SLOW', color = 'var(--cyber-pink)';
             if (time < 200) { rating = '⚡ SUPERHUMAN'; color = 'var(--cyber-yellow)'; }
             else if (time < 250) { rating = '🚀 FAST'; color = 'var(--cyber-green)'; }
             else if (time < 350) { rating = '✓ GOOD'; color = 'var(--cyber-cyan)'; }
             
-            html = `
-                <div style="text-align:center; padding:40px 20px;">
-                    <div style="font-size:4rem; font-weight:900; color:${color}; text-shadow:0 0 20px ${color};">${time}ms</div>
-                    <div style="font-size:1.5rem; margin:20px 0; color:${color};">${rating}</div>
-                    <button class="cyber-btn" onclick="Reaction.init()">TRY AGAIN</button>
-                </div>
-            `;
+            html = `<div style="text-align:center; padding:40px 20px;">
+                <div style="font-size:4rem; font-weight:900; color:${color}; text-shadow:0 0 20px ${color};">${time}ms</div>
+                <div style="font-size:1.5rem; margin:20px 0; color:${color};">${rating}</div>
+                <button class="cyber-btn" onclick="Reaction.init()">TRY AGAIN</button>
+            </div>`;
         } else if (this.state === 'early') {
-            html = `
-                <div style="text-align:center; padding:40px 20px;">
-                    <div style="font-size:3rem; margin-bottom:20px;">⚠️</div>
-                    <div style="color:var(--cyber-red); font-size:1.2rem; margin-bottom:20px;">TOO EARLY!</div>
-                    <button class="cyber-btn" onclick="Reaction.init()">RETRY</button>
-                </div>
-            `;
+            html = `<div style="text-align:center; padding:40px 20px;">
+                <div style="font-size:3rem; margin-bottom:20px;">⚠️</div>
+                <div style="color:var(--cyber-red); font-size:1.2rem; margin-bottom:20px;">TOO EARLY!</div>
+                <button class="cyber-btn" onclick="Reaction.init()">RETRY</button>
+            </div>`;
         }
         
         content.innerHTML = html;
@@ -137,7 +129,6 @@ const Reaction = {
     start() {
         this.state = 'ready';
         this.render();
-        
         const delay = 1500 + Math.random() * 3000;
         this.timer = setTimeout(() => {
             this.state = 'go';
@@ -152,6 +143,7 @@ const Reaction = {
         this.state = 'result';
         this.render();
         if (navigator.vibrate) navigator.vibrate(100);
+        Games.recordResult('reaction', this.resultTime < 300 ? 'win' : 'loss');
     },
     
     tooEarly() {
@@ -161,7 +153,7 @@ const Reaction = {
     }
 };
 
-// حدس عدد
+// ============ حدس عدد ============
 const GuessNumber = {
     target: 0,
     attempts: 0,
@@ -182,13 +174,14 @@ const GuessNumber = {
                 <div style="color:var(--cyber-yellow); margin-bottom:15px;">ATTEMPTS: ${this.attempts}/${this.maxAttempts}</div>
                 ${message ? `<div style="padding:15px; background:rgba(0,255,65,0.1); border:1px solid var(--cyber-green); border-radius:8px; margin-bottom:15px; color:var(--cyber-green);">${message}</div>` : ''}
                 <div style="display:flex; gap:8px; margin-bottom:15px;">
-                    <input type="number" id="guess-input" class="cyber-input" min="1" max="100" placeholder="1-100" style="text-align:center;">
+                    <input type="number" id="guess-input" class="cyber-input" min="1" max="100" placeholder="1-100" style="text-align:center;" onkeypress="if(event.key==='Enter')GuessNumber.guess()">
                     <button class="cyber-btn" onclick="GuessNumber.guess()">GUESS</button>
                 </div>
                 <button class="cyber-btn small cyan" onclick="GuessNumber.init()">NEW_GAME</button>
             </div>
         `;
-        document.getElementById('guess-input').focus();
+        const input = document.getElementById('guess-input');
+        if (input) input.focus();
     },
     
     guess() {
@@ -216,7 +209,7 @@ const GuessNumber = {
     }
 };
 
-// تاس
+// ============ تاس ============
 const Dice = {
     init() {
         document.getElementById('game-title').textContent = '🎲 LUCKY_DICE';
@@ -230,8 +223,8 @@ const Dice = {
         content.innerHTML = `
             <div style="text-align:center; padding:30px 20px;">
                 <div style="display:flex; justify-content:center; gap:30px; margin:30px 0;">
-                    <div style="font-size:5rem; ${d1?'animation:diceRoll 0.5s;':''}">${d1 ? diceEmojis[d1-1] : '🎲'}</div>
-                    <div style="font-size:5rem; ${d2?'animation:diceRoll 0.5s;':''}">${d2 ? diceEmojis[d2-1] : '🎲'}</div>
+                    <div style="font-size:5rem;">${d1 ? diceEmojis[d1-1] : '🎲'}</div>
+                    <div style="font-size:5rem;">${d2 ? diceEmojis[d2-1] : '🎲'}</div>
                 </div>
                 ${d1 && d2 ? `
                     <div style="font-size:2rem; color:var(--cyber-yellow); margin:15px 0;">TOTAL: ${d1+d2}</div>
@@ -256,7 +249,7 @@ const Dice = {
     }
 };
 
-// 2048 ساده
+// ============ بازی 2048 ============
 const Game2048 = {
     grid: [],
     score: 0,
@@ -281,8 +274,7 @@ const Game2048 = {
     render() {
         const content = document.getElementById('game-content');
         const colors = {
-            0: 'rgba(10,14,20,0.8)',
-            2: '#00ff41', 4: '#00d4ff', 8: '#ff006e',
+            0: 'rgba(10,14,20,0.8)', 2: '#00ff41', 4: '#00d4ff', 8: '#ff006e',
             16: '#bc13fe', 32: '#ffd700', 64: '#ff003c',
             128: '#00ff41', 256: '#00d4ff', 512: '#ff006e',
             1024: '#bc13fe', 2048: '#ffd700'
@@ -312,15 +304,12 @@ const Game2048 = {
     },
     
     move(dir) {
-        const old = [...this.grid];
         let moved = false;
         
         const getRow = (r) => [this.grid[r*4], this.grid[r*4+1], this.grid[r*4+2], this.grid[r*4+3]];
         const setRow = (r, row) => {
-            this.grid[r*4] = row[0];
-            this.grid[r*4+1] = row[1];
-            this.grid[r*4+2] = row[2];
-            this.grid[r*4+3] = row[3];
+            this.grid[r*4] = row[0]; this.grid[r*4+1] = row[1];
+            this.grid[r*4+2] = row[2]; this.grid[r*4+3] = row[3];
         };
         
         const slide = (row) => {
@@ -338,14 +327,16 @@ const Game2048 = {
         
         if (dir === 'left') {
             for (let r = 0; r < 4; r++) {
-                const newRow = slide(getRow(r));
-                if (JSON.stringify(newRow) !== JSON.stringify(getRow(r))) moved = true;
+                const oldRow = getRow(r);
+                const newRow = slide(oldRow);
+                if (JSON.stringify(newRow) !== JSON.stringify(oldRow)) moved = true;
                 setRow(r, newRow);
             }
         } else if (dir === 'right') {
             for (let r = 0; r < 4; r++) {
-                const newRow = slide(getRow(r).reverse()).reverse();
-                if (JSON.stringify(newRow) !== JSON.stringify(getRow(r))) moved = true;
+                const oldRow = getRow(r);
+                const newRow = slide(oldRow.slice().reverse()).reverse();
+                if (JSON.stringify(newRow) !== JSON.stringify(oldRow)) moved = true;
                 setRow(r, newRow);
             }
         } else if (dir === 'up') {
@@ -353,21 +344,16 @@ const Game2048 = {
                 const col = [this.grid[c], this.grid[c+4], this.grid[c+8], this.grid[c+12]];
                 const newCol = slide(col);
                 if (JSON.stringify(newCol) !== JSON.stringify(col)) moved = true;
-                this.grid[c] = newCol[0];
-                this.grid[c+4] = newCol[1];
-                this.grid[c+8] = newCol[2];
-                this.grid[c+12] = newCol[3];
+                this.grid[c] = newCol[0]; this.grid[c+4] = newCol[1];
+                this.grid[c+8] = newCol[2]; this.grid[c+12] = newCol[3];
             }
         } else if (dir === 'down') {
             for (let c = 0; c < 4; c++) {
-                const col = [this.grid[c], this.grid[c+4], this.grid[c+8], this.grid[c+12]].reverse();
-                const newCol = slide(col).reverse();
-                const oldCol = [this.grid[c], this.grid[c+4], this.grid[c+8], this.grid[c+12]];
-                if (JSON.stringify(newCol) !== JSON.stringify(oldCol)) moved = true;
-                this.grid[c] = newCol[0];
-                this.grid[c+4] = newCol[1];
-                this.grid[c+8] = newCol[2];
-                this.grid[c+12] = newCol[3];
+                const col = [this.grid[c], this.grid[c+4], this.grid[c+8], this.grid[c+12]];
+                const newCol = slide(col.slice().reverse()).reverse();
+                if (JSON.stringify(newCol) !== JSON.stringify(col)) moved = true;
+                this.grid[c] = newCol[0]; this.grid[c+4] = newCol[1];
+                this.grid[c+8] = newCol[2]; this.grid[c+12] = newCol[3];
             }
         }
         
@@ -379,7 +365,7 @@ const Game2048 = {
     }
 };
 
-// دوز
+// ============ بازی دوز ============
 const TicTacToe = {
     board: Array(9).fill(null),
     current: 'X',
@@ -420,8 +406,8 @@ const TicTacToe = {
             this.active = false;
             this.render();
             setTimeout(() => {
-                alert(winner === 'draw' ? '🤝 DRAW' : `🎉 ${winner} WINS!`);
-                Games.recordResult('tictactoe', winner === 'draw' ? 'draw' : (winner === 'X' ? 'win' : 'loss'));
+                alert(`🎉 ${winner} WINS!`);
+                Games.recordResult('tictactoe', winner === 'X' ? 'win' : 'loss');
             }, 100);
             return;
         }
@@ -451,7 +437,7 @@ const TicTacToe = {
     }
 };
 
-// حافظه
+// ============ بازی حافظه ============
 const MemoryGame = {
     emojis: ['💕','🌹','💖','💗','💘','💝','💞','💓'],
     cards: [],
@@ -513,7 +499,7 @@ const MemoryGame = {
     }
 };
 
-// سنگ کاغذ قیچی
+// ============ سنگ کاغذ قیچی ============
 const RPS = {
     choices: ['rock','paper','scissors'],
     emojis: {rock:'✊', paper:'✋', scissors:'✌️'},
@@ -597,7 +583,7 @@ const RPS = {
     }
 };
 
-// جرئت یا حقیقت
+// ============ جرئت یا حقیقت ============
 const TruthDare = {
     truths: [
         'اولین باری که منو دیدی چه فکری کردی؟',
