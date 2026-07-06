@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LOVEHUB // ACCESS TERMINAL</title>
+    <link rel="stylesheet" href="css/cyber.css">
+    <link rel="stylesheet" href="css/matrix.css">
+</head>
+<body class="login-body">
+    <canvas id="matrix"></canvas>
+    
+    <div class="boot-sequence">
+        <div id="boot-log"></div>
+    </div>
+    
+    <div class="login-container" id="login-container" style="display:none;">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                </div>
+                <div class="terminal-title">root@lovehub:~$ secure_login</div>
+            </div>
+            <div class="terminal-body">
+                <div class="ascii-logo">
+<pre>
+██╗      ██████╗  ██████╗ ███████╗██╗  ██╗██╗   ██╗██████╗ 
+██║     ██╔═══██╗██╔════╝ ██╔════╝██║  ██║██║   ██║██╔══██╗
+██║     ██║   ██║██║  ███╗█████╗  ███████║██║   ██║██████╔╝
+██║     ██║   ██║██║   ██║██╔══╝  ██╔══██║██║   ██║██╔══██╗
+███████╗╚██████╔╝╚██████╔╝███████╗██║  ██║╚██████╔╝██████╔╝
+╚══════╝ ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ 
+        <span class="glitch" data-text="[ SECURE ACCESS v2.0 ]">[ SECURE ACCESS v2.0 ]</span>
+</pre>
+                </div>
+                
+                <div class="system-info">
+                    <div>> SYSTEM STATUS: <span class="online">ONLINE</span></div>
+                    <div>> ENCRYPTION: <span class="cyan">AES-256</span></div>
+                    <div>> CONNECTION: <span class="green">SECURED</span></div>
+                    <div>> TIME: <span id="live-time"></span></div>
+                </div>
+                
+                <form id="login-form" autocomplete="off">
+                    <div class="input-group">
+                        <label>> ENTER_USERNAME:</label>
+                        <div class="input-wrapper">
+                            <span class="prompt">$</span>
+                            <input type="text" id="username" required autocomplete="username" placeholder="pourya / sarina">
+                            <span class="cursor">▊</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>> ENTER_PASSWORD:</label>
+                        <div class="input-wrapper">
+                            <span class="prompt">$</span>
+                            <input type="password" id="password" required autocomplete="current-password" placeholder="•••••">
+                            <span class="cursor">▊</span>
+                        </div>
+                    </div>
+                    
+                    <div id="login-error" class="error-msg" style="display:none;">
+                        <span class="blink">⚠ ACCESS DENIED</span> - Invalid credentials
+                    </div>
+                    
+                    <button type="submit" class="cyber-btn">
+                        <span class="btn-text">[ AUTHENTICATE ]</span>
+                        <span class="btn-glitch"></span>
+                    </button>
+                </form>
+                
+                <div class="footer-info">
+                    <div class="scan-line"></div>
+                    <div>> AUTHORIZED USERS: <span class="pink">POURYA</span>, <span class="cyan">SARINA</span></div>
+                    <div>> DEFAULT CREDENTIALS: <span class="warn">12345</span> (change after login)</div>
+                    <div class="blink">> AWAITING INPUT<span class="cursor">_</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/matrix.js"></script>
+</body>
+</html>
+
