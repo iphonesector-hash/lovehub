@@ -48,7 +48,6 @@ const API = {
         }
     },
     
-    // Auth
     login(username, password) {
         return this.request('auth/login', {
             method: 'POST',
@@ -74,7 +73,6 @@ const API = {
         });
     },
     
-    // Chat
     getChat() {
         return this.request('chat');
     },
@@ -86,7 +84,6 @@ const API = {
         });
     },
     
-    // Wishes
     getWishes() {
         return this.request('wishes');
     },
@@ -104,7 +101,6 @@ const API = {
         });
     },
     
-    // Timeline
     getTimeline() {
         return this.request('timeline');
     },
@@ -116,7 +112,6 @@ const API = {
         });
     },
     
-    // Capsules
     getCapsules() {
         return this.request('capsules');
     },
@@ -128,7 +123,6 @@ const API = {
         });
     },
     
-    // Mood
     getMood() {
         return this.request('mood');
     },
@@ -140,7 +134,6 @@ const API = {
         });
     },
     
-    // Cycle
     getCycle() {
         return this.request('cycle');
     },
@@ -152,7 +145,6 @@ const API = {
         });
     },
     
-    // Games
     getGameStats() {
         return this.request('game-stats');
     },
@@ -164,7 +156,6 @@ const API = {
         });
     },
     
-    // Meditation
     getMeditationStats() {
         return this.request('meditation');
     },
@@ -176,7 +167,6 @@ const API = {
         });
     },
     
-    // Touch
     getTouchStats() {
         return this.request('touch');
     },
@@ -188,7 +178,6 @@ const API = {
         });
     },
     
-    // Sector AI
     querySector(message) {
         return this.request('sector', {
             method: 'POST',
@@ -196,7 +185,6 @@ const API = {
         });
     },
     
-    // Memories
     getMemories() {
         return this.request('memories');
     },
@@ -208,7 +196,6 @@ const API = {
         });
     },
     
-    // Love test
     saveLoveTest(resultType) {
         return this.request('love-test', {
             method: 'POST',
