@@ -6,7 +6,10 @@ const Chat = {
         '✨ زندگیمی!',
         '🥰 بهترین اتفاق زندگیمی',
         '💖 همیشه کنارتم',
-        '🌟 تو همه دنیای منی'
+        '🌟 تو همه دنیای منی',
+        '😘 می‌بوسمت',
+        '🤗 کاش الان پیشت بودم',
+        '💫 هر روز بیشتر دوستت دارم'
     ],
     
     async init() {
@@ -21,7 +24,7 @@ const Chat = {
             const data = await API.getChat();
             chatBox.innerHTML = '';
             
-            if (data.messages.length === 0) {
+            if (!data.messages || data.messages.length === 0) {
                 const welcome = document.createElement('div');
                 welcome.className = 'chat-bubble msg-partner';
                 welcome.textContent = 'سلام عشقم! 🌹 کلبه رویاییمون آماده‌ست...';
@@ -29,7 +32,8 @@ const Chat = {
                 return;
             }
             
-            const currentUserId = JSON.parse(localStorage.getItem('lovehub_user')).id;
+            const user = JSON.parse(localStorage.getItem('lovehub_user') || '{}');
+            const currentUserId = user.id;
             
             data.messages.forEach(msg => {
                 const bubble = document.createElement('div');
@@ -39,6 +43,10 @@ const Chat = {
             });
             
             chatBox.scrollTop = chatBox.scrollHeight;
+            
+            const msgCount = document.getElementById('msg-count');
+            if (msgCount) msgCount.textContent = data.messages.length;
+            
         } catch (err) {
             console.error('Load chat error:', err);
         }
@@ -51,7 +59,6 @@ const Chat = {
         const message = input.value.trim();
         input.value = '';
         
-        // نمایش پیام خودمون
         const chatBox = document.getElementById('chat-box');
         const myMsg = document.createElement('div');
         myMsg.className = 'chat-bubble msg-me';
@@ -62,7 +69,6 @@ const Chat = {
         try {
             await API.sendMessage(message);
             
-            // پاسخ خودکار پارتنر (شبیه‌سازی)
             setTimeout(() => {
                 const reply = document.createElement('div');
                 reply.className = 'chat-bubble msg-partner';
@@ -72,6 +78,11 @@ const Chat = {
             }, 1500);
         } catch (err) {
             console.error('Send error:', err);
+            const errMsg = document.createElement('div');
+            errMsg.className = 'chat-bubble msg-partner';
+            errMsg.style.color = 'var(--cyber-red)';
+            errMsg.textContent = '⚠️ خطا در ارسال پیام';
+            chatBox.appendChild(errMsg);
         }
     }
 };
