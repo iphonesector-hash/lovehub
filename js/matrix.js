@@ -30,7 +30,6 @@ if (canvas) {
             const x = i * fontSize;
             const y = drops[i] * fontSize;
             
-            // رنگ‌های متنوع
             const colors = ['#00ff41', '#00d4ff', '#ff006e', '#bc13fe'];
             ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
             
