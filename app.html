@@ -12,9 +12,7 @@
     
     <header class="cyber-header">
         <div class="header-left">
-            <div class="logo-mini">
-                <span class="glitch-small" data-text="LH">LH</span>
-            </div>
+            <div class="logo-mini"><span class="glitch-small">LH</span></div>
             <div class="user-info">
                 <div class="user-name" id="user-name">LOADING...</div>
                 <div class="user-status">
@@ -24,17 +22,14 @@
             </div>
         </div>
         <div class="header-right">
-            <button class="icon-btn" onclick="App.openProfile()">
-                <span>⚙</span>
-            </button>
-            <button class="icon-btn" onclick="App.logout()">
-                <span>⏻</span>
-            </button>
+            <button class="icon-btn" onclick="App.openProfile()">⚙</button>
+            <button class="icon-btn" onclick="App.logout()">⏻</button>
         </div>
     </header>
 
     <div class="main-container">
-        <!-- تب ۱: داشبورد -->
+        
+        <!-- Dashboard -->
         <div id="view-dashboard" class="view active">
             <div class="dashboard-grid">
                 <div class="stat-card pink">
@@ -42,23 +37,20 @@
                     <div class="stat-value" id="love-counter">00:00:00</div>
                     <div class="stat-sub">DAYS:HH:MM</div>
                 </div>
-                
                 <div class="stat-card cyan">
-                    <div class="stat-label">PARTNER_STATUS</div>
+                    <div class="stat-label">PARTNER</div>
                     <div class="stat-value" id="partner-status">ONLINE</div>
-                    <div class="stat-sub">LAST_SEEN: NOW</div>
+                    <div class="stat-sub">CONNECTED</div>
                 </div>
-                
                 <div class="stat-card green">
-                    <div class="stat-label">MESSAGES_TODAY</div>
+                    <div class="stat-label">MESSAGES</div>
                     <div class="stat-value" id="msg-count">0</div>
-                    <div class="stat-sub">CONNECTION_ACTIVE</div>
+                    <div class="stat-sub">TODAY</div>
                 </div>
-                
                 <div class="stat-card purple">
-                    <div class="stat-label">MOOD_INDEX</div>
+                    <div class="stat-label">MOOD</div>
                     <div class="stat-value" id="mood-index">😊</div>
-                    <div class="stat-sub">CURRENT_STATE</div>
+                    <div class="stat-sub">CURRENT</div>
                 </div>
             </div>
             
@@ -66,43 +58,66 @@
                 <div class="section-title">> QUICK_ACCESS</div>
                 <div class="action-grid">
                     <button class="action-tile" onclick="App.switchTab('chat')">
-                        <span class="tile-icon">💬</span>
-                        <span>CHAT</span>
+                        <span class="tile-icon">💬</span><span>CHAT</span>
                     </button>
                     <button class="action-tile" onclick="App.switchTab('games')">
-                        <span class="tile-icon">🎮</span>
-                        <span>GAMES</span>
+                        <span class="tile-icon">🎮</span><span>GAMES</span>
                     </button>
                     <button class="action-tile" onclick="App.switchTab('touch')">
-                        <span class="tile-icon">💓</span>
-                        <span>TOUCH</span>
+                        <span class="tile-icon">💓</span><span>TOUCH</span>
                     </button>
                     <button class="action-tile" onclick="App.switchTab('sector')">
-                        <span class="tile-icon">🔮</span>
-                        <span>SECTOR</span>
+                        <span class="tile-icon">🔮</span><span>SECTOR</span>
                     </button>
                 </div>
             </div>
             
-            <div class="activity-feed">
-                <div class="section-title">> RECENT_ACTIVITY</div>
-                <div id="activity-list"></div>
+            <div class="quick-actions">
+                <div class="section-title">> MORE_FEATURES</div>
+                <div class="action-grid">
+                    <button class="action-tile" onclick="App.switchTab('memories')">
+                        <span class="tile-icon">📸</span><span>MEM</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('health')">
+                        <span class="tile-icon">🌹</span><span>HEALTH</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('capsule')">
+                        <span class="tile-icon">⏰</span><span>CAPSULE</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('wishes')">
+                        <span class="tile-icon">🌟</span><span>WISHES</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('timeline')">
+                        <span class="tile-icon">📅</span><span>TIME</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('mood')">
+                        <span class="tile-icon">😊</span><span>MOOD</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('lovetest')">
+                        <span class="tile-icon">💕</span><span>TEST</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('meditation')">
+                        <span class="tile-icon">🧘</span><span>ZEN</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- تب ۲: چت -->
+        <!-- Chat -->
         <div id="view-chat" class="view">
             <div class="chat-header">
                 <div class="encrypted-badge">🔒 E2E_ENCRYPTED</div>
             </div>
             <div class="chat-stream" id="chat-box"></div>
             <div class="chat-input-area">
-                <input type="text" class="cyber-input" id="chat-input" placeholder="$ type_message...">
+                <input type="text" class="cyber-input" id="chat-input" 
+                       placeholder="$ type_message..." 
+                       onkeypress="if(event.key==='Enter')Chat.send()">
                 <button class="send-btn" onclick="Chat.send()">⏎</button>
             </div>
         </div>
 
-        <!-- تب ۳: سکتور -->
+        <!-- Sector AI -->
         <div id="view-sector" class="view">
             <div class="sector-header">
                 <div class="sector-eye" id="sec-eye">
@@ -115,12 +130,14 @@
             </div>
             <div class="chat-stream" id="sector-stream"></div>
             <div class="chat-input-area">
-                <input type="text" class="cyber-input" id="sec-input" placeholder="$ query_sector...">
+                <input type="text" class="cyber-input" id="sec-input" 
+                       placeholder="$ query_sector..." 
+                       onkeypress="if(event.key==='Enter')Sector.ask()">
                 <button class="send-btn cyan" onclick="Sector.ask()">⏎</button>
             </div>
         </div>
 
-        <!-- تب ۴: لمس -->
+        <!-- Touch -->
         <div id="view-touch" class="view">
             <div class="touch-container">
                 <div class="touch-title">> HAPTIC_LINK</div>
@@ -132,7 +149,7 @@
                     <div class="heart-ring ring-2"></div>
                 </div>
                 <svg class="ecg-svg" viewBox="0 0 100 40">
-                    <path class="ecg-path" d="M0,20 L35,20 L38,10 L42,30 L45,4 L49,34 L53,20 L100,20" />
+                    <path class="ecg-path" d="M0,20 L35,20 L38,10 L42,30 L45,4 L49,34 L53,20 L100,20"/>
                 </svg>
                 <div class="bpm-display">
                     <span class="bpm-label">BPM:</span>
@@ -142,7 +159,7 @@
             </div>
         </div>
 
-        <!-- تب ۵: بازی‌ها -->
+        <!-- Games -->
         <div id="view-games" class="view">
             <div class="section-title">> GAME_CENTER</div>
             <div class="games-grid">
@@ -154,7 +171,7 @@
                 <div class="game-card" onclick="Games.open('tictactoe')">
                     <div class="game-icon">⭕</div>
                     <div class="game-name">TIC_TAC_TOE</div>
-                    <div class="game-desc">vs SECTOR AI</div>
+                    <div class="game-desc">classic</div>
                 </div>
                 <div class="game-card" onclick="Games.open('memory')">
                     <div class="game-icon">🧠</div>
@@ -193,7 +210,7 @@
             </div>
         </div>
 
-        <!-- تب ۶: خاطرات -->
+        <!-- Memories -->
         <div id="view-memories" class="view">
             <div class="section-title">> MEMORY_ARCHIVE</div>
             <div class="memories-grid" id="media-grid"></div>
@@ -209,7 +226,7 @@
             </div>
         </div>
 
-        <!-- تب ۷: سلامت -->
+        <!-- Health -->
         <div id="view-health" class="view">
             <div class="health-card">
                 <div class="health-title">ROSE_CYCLE_TRACKER</div>
@@ -224,7 +241,7 @@
             <div class="metrics-grid" id="body-metrics"></div>
         </div>
 
-        <!-- تب ۸: کپسول -->
+        <!-- Capsule -->
         <div id="view-capsule" class="view">
             <div class="section-title">> TIME_CAPSULE</div>
             <div class="capsule-main">
@@ -235,32 +252,35 @@
                 </div>
             </div>
             <div class="capsule-form">
-                <textarea class="cyber-input" id="capsule-message" placeholder="$ write_to_future..."></textarea>
+                <textarea class="cyber-input" id="capsule-message" 
+                          placeholder="$ write_to_future..."></textarea>
                 <input type="date" class="cyber-input" id="capsule-date">
                 <button class="cyber-btn" onclick="Capsule.save()">SEAL_CAPSULE</button>
             </div>
             <div id="capsule-list"></div>
         </div>
 
-        <!-- تب ۹: آرزوها -->
+        <!-- Wishes -->
         <div id="view-wishes" class="view">
             <div class="section-title">> BUCKET_LIST</div>
             <div id="wishes-list"></div>
             <div class="wish-form">
-                <input type="text" class="cyber-input" id="new-wish" placeholder="$ new_wish...">
+                <input type="text" class="cyber-input" id="new-wish" 
+                       placeholder="$ new_wish..."
+                       onkeypress="if(event.key==='Enter')Wishes.add()">
                 <button class="cyber-btn" onclick="Wishes.add()">+ ADD</button>
             </div>
             <div class="wishes-progress" id="wishes-stats"></div>
         </div>
 
-        <!-- تب ۱۰: تایم‌لاین -->
+        <!-- Timeline -->
         <div id="view-timeline" class="view">
             <div class="section-title">> TIMELINE_LOG</div>
             <div id="timeline-list"></div>
             <button class="cyber-btn" onclick="Timeline.add()">+ ADD_EVENT</button>
         </div>
 
-        <!-- تب ۱۱: خلق -->
+        <!-- Mood -->
         <div id="view-mood" class="view">
             <div class="section-title">> MOOD_TRACKER</div>
             <div class="mood-grid">
@@ -274,7 +294,7 @@
             <div class="mood-suggestion" id="mood-suggestion" style="display:none;"></div>
         </div>
 
-        <!-- تب ۱۲: تست -->
+        <!-- Love Test -->
         <div id="view-lovetest" class="view">
             <div class="section-title">> LOVE_LANGUAGE_TEST</div>
             <div class="test-card">
@@ -288,7 +308,7 @@
             <div id="test-result" style="display:none;"></div>
         </div>
 
-        <!-- تب ۱۳: مدیتیشن -->
+        <!-- Meditation -->
         <div id="view-meditation" class="view">
             <div class="section-title">> MEDITATION_MODULE</div>
             <div class="meditation-circle" id="meditation-circle">🌊</div>
@@ -302,20 +322,21 @@
             </div>
             <div class="meditation-stats" id="meditation-stats"></div>
         </div>
+
     </div>
 
-    <!-- پروفایل -->
+    <!-- Profile Modal -->
     <div class="modal" id="profile-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="section-title">> USER_PROFILE</div>
+                <div class="section-title" style="margin:0;">> USER_PROFILE</div>
                 <button class="close-btn" onclick="App.closeProfile()">×</button>
             </div>
             <div class="modal-body" id="profile-body"></div>
         </div>
     </div>
 
-    <!-- پاپ‌آپ بازی -->
+    <!-- Game Overlay -->
     <div class="game-overlay" id="game-overlay">
         <div class="game-header">
             <div id="game-title"></div>
@@ -325,7 +346,7 @@
         <div id="game-score"></div>
     </div>
 
-    <!-- پاپ‌آپ جرئت حقیقت -->
+    <!-- Truth or Dare Overlay -->
     <div class="game-overlay" id="tod-overlay">
         <div class="game-header">
             <div>FORTUNE_SPINNER</div>
@@ -344,7 +365,7 @@
         </div>
     </div>
 
-    <!-- تب‌بار -->
+    <!-- Tabbar -->
     <nav class="cyber-tabbar">
         <div class="tab-item active" onclick="App.switchTab('dashboard')">
             <span class="tab-icon">⌂</span><span>HOME</span>
@@ -380,6 +401,7 @@
         </div>
     </nav>
 
+    <!-- Scripts -->
     <script src="js/api.js"></script>
     <script src="js/matrix.js"></script>
     <script src="js/app.js"></script>
