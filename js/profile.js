@@ -3,6 +3,8 @@ const Profile = {
         const modal = document.getElementById('profile-modal');
         const body = document.getElementById('profile-body');
         
+        if (!modal || !body) return;
+        
         const u = App.user;
         const age = u.birth_date ? this.calcAge(u.birth_date) : '--';
         
@@ -121,10 +123,13 @@ const Profile = {
             if (res.success) {
                 App.user = res.user;
                 localStorage.setItem('lovehub_user', JSON.stringify(res.user));
-                document.getElementById('user-name').textContent = res.user.display_name || res.user.username;
+                const userNameEl = document.getElementById('user-name');
+                if (userNameEl) {
+                    userNameEl.textContent = res.user.display_name || res.user.username;
+                }
                 alert('✓ پروفایل ذخیره شد');
                 App.closeProfile();
-                Health.init(); // بروزرسانی بخش سلامت
+                if (typeof Health !== 'undefined') Health.init();
             }
         } catch (err) {
             alert('✗ خطا: ' + err.message);
