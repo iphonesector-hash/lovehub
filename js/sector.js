@@ -33,7 +33,7 @@ const Sector = {
             
             const aiMsg = document.createElement('div');
             aiMsg.className = 'chat-bubble msg-sector';
-            aiMsg.textContent = data.reply;
+            aiMsg.textContent = data.reply || 'پاسخی دریافت نشد';
             stream.appendChild(aiMsg);
             stream.scrollTop = stream.scrollHeight;
         } catch (err) {
