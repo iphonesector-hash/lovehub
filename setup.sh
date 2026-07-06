@@ -1,119 +1,557 @@
 #!/bin/bash
 set -e
+echo "🚀 LoveHub - Full Project Setup"
+echo "================================="
 
-echo "🚀 LoveHub Setup Script"
-echo "========================"
+mkdir -p backend css js data
 
-# رنگ‌ها
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+# ============================================================
+# BACKEND
+# ============================================================
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cat > backend/requirements.txt << 'REQEOF'
+Flask==3.0.0
+Flask-CORS==4.0.0
+PyJWT==2.8.0
+werkzeug==3.0.1
+requests==2.31.0
+gunicorn==21.2.0
+REQEOF
 
-# 1. ساخت venv
-echo -e "${YELLOW}[1/6] Creating Python virtual environment...${NC}"
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
-fi
-source venv/bin/activate
+cat > backend/config.py << 'PYEOF'
+import os
 
-# 2. نصب dependencies
-echo -e "${YELLOW}[2/6] Installing Python dependencies...${NC}"
-pip install --upgrade pip
-pip install -r backend/requirements.txt
+class Config:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = os.path.join(os.path.dirname(BASE_DIR), 'data')
+    DB_PATH = os.path.join(DATA_DIR, 'lovehub.db')
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'CHANGE_THIS_SECRET_KEY_2026_LOVEHUB')
+    JWT_ALGORITHM = 'HS256'
+    JWT_EXPIRY_DAYS = 30
+    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+    GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
+    GROQ_MODEL = 'llama-3.3-70b-versatile'
+    DEFAULT_USERS = [
+        {'username': 'pourya', 'password': '12345', 'display_name': 'پوریا', 'nickname': 'عشقم'},
+        {'username': 'sarina', 'password': '12345', 'display_name': 'سارینا', 'nickname': 'نفسم'}
+    ]
+PYEOF
 
-# 3. ساخت پوشه data
-echo -e "${YELLOW}[3/6] Creating data directory...${NC}"
-mkdir -p data
-chmod 755 data
+cat > backend/database.py << 'PYEOF'
+import sqlite3, os
+from config import Config
+from werkzeug.security import generate_password_hash
 
-# 4. مقداردهی اولیه دیتابیس
-echo -e "${YELLOW}[4/6] Initializing database...${NC}"
-cd backend
-python database.py
-cd ..
+def get_db():
+    os.makedirs(Config.DATA_DIR, exist_ok=True)
+    conn = sqlite3.connect(Config.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
 
-# 5. ساخت سرویس systemd
-echo -e "${YELLOW}[5/6] Creating systemd service...${NC}"
-SERVICE_FILE="/etc/systemd/system/lovehub.service"
-sudo tee $SERVICE_FILE > /dev/null <<EOF
-[Unit]
-Description=LoveHub Flask Application
-After=network.target
-
-[Service]
-User=$USER
-WorkingDirectory=$PROJECT_DIR/backend
-Environment="PATH=$PROJECT_DIR/venv/bin"
-ExecStart=$PROJECT_DIR/venv/bin/gunicorn -w 2 -b 127.0.0.1:5000 --timeout 120 app:app
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# 6. تنظیم Nginx
-echo -e "${YELLOW}[6/6] Configuring Nginx...${NC}"
-NGINX_CONF="/etc/nginx/sites-available/lovehub"
-sudo tee $NGINX_CONF > /dev/null <<EOF
-server {
-    listen 80;
-    server_name _;
+def init_db():
+    conn = get_db()
+    c = conn.cursor()
+    tables = [
+        '''CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL, display_name TEXT, nickname TEXT,
+            birth_date TEXT, gender TEXT, height_cm REAL, weight_kg REAL,
+            blood_type TEXT, phone TEXT, email TEXT, bio TEXT, avatar_url TEXT,
+            love_language TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP)''',
+        '''CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER NOT NULL,
+            message TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS wishes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            text TEXT NOT NULL, is_completed INTEGER DEFAULT 0, completed_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS timeline_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            event_date TEXT NOT NULL, title TEXT NOT NULL, description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS capsules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            message TEXT NOT NULL, unlock_time TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS mood_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            mood TEXT NOT NULL, emoji TEXT, note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS game_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            game_type TEXT NOT NULL, wins INTEGER DEFAULT 0, losses INTEGER DEFAULT 0,
+            draws INTEGER DEFAULT 0, UNIQUE(user_id, game_type),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS meditation_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE NOT NULL,
+            sessions INTEGER DEFAULT 0, total_minutes INTEGER DEFAULT 0,
+            streak INTEGER DEFAULT 0, last_date TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS touch_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE NOT NULL,
+            touch_count INTEGER DEFAULT 0, total_seconds INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS cycle_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE NOT NULL,
+            last_period TEXT NOT NULL, cycle_length INTEGER DEFAULT 28,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS love_test_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            result_type TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''',
+        '''CREATE TABLE IF NOT EXISTS memories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            type TEXT NOT NULL, data TEXT, caption TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)'''
+    ]
+    for t in tables:
+        c.execute(t)
+    conn.commit()
     
-    root $PROJECT_DIR;
-    index index.html;
-    
-    location /css/ {
-        alias $PROJECT_DIR/css/;
-        expires 1w;
+    for user in Config.DEFAULT_USERS:
+        try:
+            c.execute("INSERT INTO users (username, password_hash, display_name, nickname) VALUES (?, ?, ?, ?)",
+                     (user['username'], generate_password_hash(user['password']), user['display_name'], user['nickname']))
+        except sqlite3.IntegrityError:
+            pass
+    conn.commit()
+    conn.close()
+    print("✅ Database initialized")
+
+if __name__ == '__main__':
+    init_db()
+PYEOF
+
+cat > backend/auth.py << 'PYEOF'
+import jwt, datetime
+from functools import wraps
+from flask import request, jsonify
+from config import Config
+
+def generate_token(user_id):
+    payload = {
+        'user_id': user_id,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=Config.JWT_EXPIRY_DAYS),
+        'iat': datetime.datetime.utcnow()
     }
-    
-    location /js/ {
-        alias $PROJECT_DIR/js/;
-        expires 1w;
-    }
-    
-    location /api/ {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_read_timeout 120s;
-    }
-    
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    location = /app {
-        try_files /app.html =404;
-    }
-}
-EOF
+    return jwt.encode(payload, Config.SECRET_KEY, algorithm=Config.JWT_ALGORITHM)
 
-sudo ln -sf $NGINX_CONF /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+def validate_token(token):
+    try:
+        payload = jwt.decode(token, Config.SECRET_KEY, algorithms=[Config.JWT_ALGORITHM])
+        return payload.get('user_id')
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
 
-# 7. فعال‌سازی سرویس
-echo -e "${YELLOW}[7/7] Starting LoveHub service...${NC}"
-sudo systemctl daemon-reload
-sudo systemctl enable lovehub
-sudo systemctl restart lovehub
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Unauthorized'}), 401
+        token = auth_header.split(' ')[1]
+        user_id = validate_token(token)
+        if not user_id:
+            return jsonify({'error': 'Invalid token'}), 401
+        request.user_id = user_id
+        return f(*args, **kwargs)
+    return decorated
+PYEOF
 
-echo ""
-echo -e "${GREEN}✅ Setup complete!${NC}"
-echo ""
-echo "🌐 Access LoveHub at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_SERVER_IP')"
-echo ""
-echo "📋 Default credentials:"
-echo "   Username: pourya / sarina"
-echo "   Password: 12345"
-echo ""
-echo "🔧 Useful commands:"
-echo "   sudo systemctl status lovehub"
-echo "   sudo journalctl -u lovehub -f"
-echo "   sudo systemctl restart lovehub"
+cat > backend/sector_ai.py << 'PYEOF'
+import requests, random
+from config import Config
+
+def query_sector(message, user_context=None):
+    if not Config.GROQ_API_KEY:
+        return {'reply': rule_based_response(message), 'source': 'rule-based'}
+    system_prompt = "تو سکتور هستی، دستیار هوشمند عشق. لحن صمیمی و عاشقانه. فارسی پاسخ بده. ایموجی استفاده کن. حداکثر ۳ جمله."
+    if user_context:
+        system_prompt += f"\nاطلاعات: {user_context}"
+    try:
+        response = requests.post(Config.GROQ_API_URL,
+            headers={'Authorization': f'Bearer {Config.GROQ_API_KEY}', 'Content-Type': 'application/json'},
+            json={'model': Config.GROQ_MODEL, 'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': message}
+            ], 'temperature': 0.8, 'max_tokens': 300}, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            return {'reply': data['choices'][0]['message']['content'], 'source': 'groq'}
+    except Exception as e:
+        print(f"Groq error: {e}")
+    return {'reply': rule_based_response(message), 'source': 'rule-based'}
+
+def rule_based_response(msg):
+    msg_lower = msg.lower()
+    rules = [
+        (['سلام', 'هی', 'درود'], ['سلام عشقم! 🌹 چطور می‌تونم کمکتون کنم؟', 'درود بر شما دو عزیز! 💕']),
+        (['دوستت', 'عاشق', 'دلم تنگ'], ['💕 عشق شما خاصه! یه پیام صوتی عاشقانه بفرست!', '🌹 امروز یه سورپرایز کوچیک آماده کن!']),
+        (['ناراحت', 'غمگین', 'خسته'], ['💙 نگران نباش، یه بغل طولانی همه چیز رو بهتر می‌کنه!', '🤗 موزیک آرام‌بخش بذارید.']),
+        (['قرار', 'ایده', 'پیشنهاد'], ['🎬 قرار سینمایی خانگی!', '🍳 با هم یه غذای جدید درست کنید!', '⭐ شب ستاره‌ها رو بشمارید!']),
+    ]
+    for keywords, responses in rules:
+        for kw in keywords:
+            if kw in msg_lower:
+                return random.choice(responses)
+    return random.choice(['🤖 رابطه شما در مسیر درستی قرار داره!', '✨ بهترین هدیه، وقت گذروندن با هم هست.', '💫 امروز یه خاطره جدید بسازید!'])
+PYEOF
+
+cat > backend/app.py << 'PYEOF'
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, date, timedelta
+from config import Config
+from database import get_db, init_db
+from auth import generate_token, require_auth
+from sector_ai import query_sector
+
+app = Flask(__name__, static_folder='..', static_url_path='')
+CORS(app)
+
+@app.route('/')
+def index():
+    return send_from_directory('..', 'index.html')
+
+@app.route('/app')
+def app_page():
+    return send_from_directory('..', 'app.html')
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    if not username or not password:
+        return jsonify({'error': 'Username and password required'}), 400
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    db.close()
+    if not user or not check_password_hash(user['password_hash'], password):
+        return jsonify({'error': 'Invalid credentials'}), 401
+    db = get_db()
+    db.execute("UPDATE users SET last_login = ? WHERE id = ?", (datetime.now().isoformat(), user['id']))
+    db.commit()
+    db.close()
+    token = generate_token(user['id'])
+    return jsonify({
+        'success': True, 'token': token,
+        'user': {'id': user['id'], 'username': user['username'],
+                 'display_name': user['display_name'], 'nickname': user['nickname']}
+    })
+
+@app.route('/api/auth/me', methods=['GET'])
+@require_auth
+def get_me():
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    db.close()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({'success': True, 'user': dict(user)})
+
+@app.route('/api/auth/change-password', methods=['POST'])
+@require_auth
+def change_password():
+    data = request.get_json()
+    old_pass = data.get('old_password', '')
+    new_pass = data.get('new_password', '')
+    if len(new_pass) < 4:
+        return jsonify({'error': 'Password too short'}), 400
+    db = get_db()
+    user = db.execute("SELECT password_hash FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    if not check_password_hash(user['password_hash'], old_pass):
+        db.close()
+        return jsonify({'error': 'Old password incorrect'}), 401
+    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (generate_password_hash(new_pass), request.user_id))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/profile', methods=['POST'])
+@require_auth
+def update_profile():
+    data = request.get_json()
+    allowed = ['display_name', 'nickname', 'birth_date', 'gender', 'height_cm', 'weight_kg', 'blood_type', 'phone', 'email', 'bio', 'love_language']
+    updates, values = [], []
+    for field in allowed:
+        if field in data:
+            updates.append(f"{field} = ?")
+            values.append(data[field])
+    if not updates:
+        return jsonify({'error': 'No fields'}), 400
+    values.append(request.user_id)
+    db = get_db()
+    db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", values)
+    db.commit()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    db.close()
+    return jsonify({'success': True, 'user': dict(user)})
+
+@app.route('/api/chat', methods=['GET'])
+@require_auth
+def get_chat():
+    db = get_db()
+    messages = db.execute("SELECT cm.*, u.display_name, u.username FROM chat_messages cm JOIN users u ON cm.sender_id = u.id ORDER BY cm.created_at DESC LIMIT 100").fetchall()
+    db.close()
+    return jsonify({'messages': [dict(m) for m in reversed(messages)]})
+
+@app.route('/api/chat', methods=['POST'])
+@require_auth
+def send_chat():
+    data = request.get_json()
+    msg = data.get('message', '').strip()
+    if not msg:
+        return jsonify({'error': 'Empty message'}), 400
+    db = get_db()
+    c = db.execute("INSERT INTO chat_messages (sender_id, message) VALUES (?, ?)", (request.user_id, msg))
+    db.commit()
+    db.close()
+    return jsonify({'success': True, 'id': c.lastrowid})
+
+@app.route('/api/wishes', methods=['GET'])
+@require_auth
+def get_wishes():
+    db = get_db()
+    wishes = db.execute("SELECT * FROM wishes WHERE user_id = ? ORDER BY created_at DESC", (request.user_id,)).fetchall()
+    db.close()
+    return jsonify({'wishes': [dict(w) for w in wishes]})
+
+@app.route('/api/wishes', methods=['POST'])
+@require_auth
+def add_wish():
+    data = request.get_json()
+    text = data.get('text', '').strip()
+    if not text:
+        return jsonify({'error': 'Empty text'}), 400
+    db = get_db()
+    db.execute("INSERT INTO wishes (user_id, text) VALUES (?, ?)", (request.user_id, text))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/wishes/<int:wish_id>/toggle', methods=['POST'])
+@require_auth
+def toggle_wish(wish_id):
+    db = get_db()
+    db.execute("UPDATE wishes SET is_completed = CASE WHEN is_completed = 1 THEN 0 ELSE 1 END, completed_at = CASE WHEN is_completed = 1 THEN NULL ELSE ? END WHERE id = ? AND user_id = ?",
+              (datetime.now().isoformat(), wish_id, request.user_id))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/timeline', methods=['GET'])
+@require_auth
+def get_timeline():
+    db = get_db()
+    events = db.execute("SELECT * FROM timeline_events WHERE user_id = ? ORDER BY event_date DESC", (request.user_id,)).fetchall()
+    db.close()
+    return jsonify({'events': [dict(e) for e in events]})
+
+@app.route('/api/timeline', methods=['POST'])
+@require_auth
+def add_timeline():
+    data = request.get_json()
+    db = get_db()
+    db.execute("INSERT INTO timeline_events (user_id, event_date, title, description) VALUES (?, ?, ?, ?)",
+              (request.user_id, data.get('date'), data.get('title'), data.get('description', '')))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/capsules', methods=['GET'])
+@require_auth
+def get_capsules():
+    db = get_db()
+    capsules = db.execute("SELECT * FROM capsules WHERE user_id = ? ORDER BY unlock_time ASC", (request.user_id,)).fetchall()
+    db.close()
+    return jsonify({'capsules': [dict(c) for c in capsules]})
+
+@app.route('/api/capsules', methods=['POST'])
+@require_auth
+def add_capsule():
+    data = request.get_json()
+    db = get_db()
+    db.execute("INSERT INTO capsules (user_id, message, unlock_time) VALUES (?, ?, ?)",
+              (request.user_id, data.get('message'), data.get('unlock_time')))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/mood', methods=['GET'])
+@require_auth
+def get_mood():
+    db = get_db()
+    moods = db.execute("SELECT * FROM mood_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 30", (request.user_id,)).fetchall()
+    db.close()
+    return jsonify({'moods': [dict(m) for m in moods]})
+
+@app.route('/api/mood', methods=['POST'])
+@require_auth
+def add_mood():
+    data = request.get_json()
+    db = get_db()
+    db.execute("INSERT INTO mood_history (user_id, mood, emoji, note) VALUES (?, ?, ?, ?)",
+              (request.user_id, data.get('mood'), data.get('emoji'), data.get('note', '')))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/cycle', methods=['GET'])
+@require_auth
+def get_cycle():
+    db = get_db()
+    cycle = db.execute("SELECT * FROM cycle_data WHERE user_id = ?", (request.user_id,)).fetchone()
+    db.close()
+    return jsonify({'cycle': dict(cycle) if cycle else None})
+
+@app.route('/api/cycle', methods=['POST'])
+@require_auth
+def update_cycle():
+    data = request.get_json()
+    db = get_db()
+    db.execute("INSERT INTO cycle_data (user_id, last_period, cycle_length) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_period = excluded.last_period, cycle_length = excluded.cycle_length, updated_at = CURRENT_TIMESTAMP",
+              (request.user_id, data.get('last_period'), data.get('cycle_length', 28)))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/game-stats', methods=['GET'])
+@require_auth
+def get_game_stats():
+    db = get_db()
+    stats = db.execute("SELECT * FROM game_stats WHERE user_id = ?", (request.user_id,)).fetchall()
+    db.close()
+    return jsonify({'stats': [dict(s) for s in stats]})
+
+@app.route('/api/game-stats', methods=['POST'])
+@require_auth
+def update_game_stats():
+    data = request.get_json()
+    game = data.get('game')
+    result = data.get('result')
+    if result not in ['win', 'loss', 'draw']:
+        return jsonify({'error': 'Invalid result'}), 400
+    field = 'wins' if result == 'win' else ('losses' if result == 'loss' else 'draws')
+    db = get_db()
+    db.execute(f"INSERT INTO game_stats (user_id, game_type, {field}) VALUES (?, ?, 1) ON CONFLICT(user_id, game_type) DO UPDATE SET {field} = {field} + 1",
+              (request.user_id, game))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/meditation', methods=['GET'])
+@require_auth
+def get_meditation():
+    db = get_db()
+    stats = db.execute("SELECT * FROM meditation_stats WHERE user_id = ?", (request.user_id,)).fetchone()
+    db.close()
+    return jsonify({'stats': dict(stats) if stats else {'sessions': 0, 'total_minutes': 0, 'streak': 0}})
+
+@app.route('/api/meditation', methods=['POST'])
+@require_auth
+def complete_meditation():
+    data = request.get_json()
+    minutes = int(data.get('minutes', 0))
+    today = date.today().isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    db = get_db()
+    stats = db.execute("SELECT * FROM meditation_stats WHERE user_id = ?", (request.user_id,)).fetchone()
+    if not stats:
+        db.execute("INSERT INTO meditation_stats (user_id, sessions, total_minutes, streak, last_date) VALUES (?, 1, ?, 1, ?)", (request.user_id, minutes, today))
+    else:
+        new_streak = stats['streak'] + 1 if stats['last_date'] == yesterday else 1
+        db.execute("UPDATE meditation_stats SET sessions = sessions + 1, total_minutes = total_minutes + ?, streak = ?, last_date = ? WHERE user_id = ?",
+                  (minutes, new_streak, today, request.user_id))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/touch', methods=['GET'])
+@require_auth
+def get_touch():
+    db = get_db()
+    stats = db.execute("SELECT * FROM touch_stats WHERE user_id = ?", (request.user_id,)).fetchone()
+    db.close()
+    return jsonify({'stats': dict(stats) if stats else {'touch_count': 0, 'total_seconds': 0}})
+
+@app.route('/api/touch', methods=['POST'])
+@require_auth
+def update_touch():
+    data = request.get_json()
+    seconds = int(data.get('seconds', 0))
+    db = get_db()
+    db.execute("INSERT INTO touch_stats (user_id, touch_count, total_seconds) VALUES (?, 1, ?) ON CONFLICT(user_id) DO UPDATE SET touch_count = touch_count + 1, total_seconds = total_seconds + ?",
+              (request.user_id, seconds, seconds))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/sector', methods=['POST'])
+@require_auth
+def sector_query():
+    data = request.get_json()
+    message = data.get('message', '').strip()
+    if not message:
+        return jsonify({'error': 'Empty message'}), 400
+    db = get_db()
+    user = db.execute("SELECT display_name, bio, love_language FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    partner = db.execute("SELECT display_name FROM users WHERE id != ? LIMIT 1", (request.user_id,)).fetchone()
+    db.close()
+    context = f"نام کاربر: {user['display_name']}"
+    if partner:
+        context += f"، نام پارتنر: {partner['display_name']}"
+    result = query_sector(message, context)
+    return jsonify(result)
+
+@app.route('/api/memories', methods=['GET'])
+@require_auth
+def get_memories():
+    db = get_db()
+    memories = db.execute("SELECT * FROM memories WHERE user_id = ? ORDER BY created_at DESC", (request.user_id,)).fetchall()
+    db.close()
+    return jsonify({'memories': [dict(m) for m in memories]})
+
+@app.route('/api/memories', methods=['POST'])
+@require_auth
+def add_memory():
+    data = request.get_json()
+    db = get_db()
+    db.execute("INSERT INTO memories (user_id, type, data, caption) VALUES (?, ?, ?, ?)",
+              (request.user_id, data.get('type', 'text'), data.get('data', ''), data.get('caption', '')))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+@app.route('/api/love-test', methods=['POST'])
+@require_auth
+def save_love_test():
+    data = request.get_json()
+    db = get_db()
+    db.execute("INSERT INTO love_test_results (user_id, result_type) VALUES (?, ?)", (request.user_id, data.get('result_type')))
+    db.execute("UPDATE users SET love_language = ? WHERE id = ?", (data.get('result_type'), request.user_id))
+    db.commit()
+    db.close()
+    return jsonify({'success': True})
+
+if __name__ == '__main__':
+    init_db()
+    app.run(host='127.0.0.1', port=5000, debug=False)
+PYEOF
+
+echo "✅ Backend complete"
+
 # ============================================================
 # HTML FILES
 # ============================================================
@@ -1029,239 +1467,4 @@ CSSEOF
 
 echo "✅ CSS files created"
 echo "✅ SETUP PART 1 COMPLETE - Continue in next message for JS files"
-# ============================================================
-# JAVASCRIPT - CORE FILES
-# ============================================================
-
-cat > js/matrix.js << 'JSEOF'
-const canvas = document.getElementById('matrix');
-if (canvas) {
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン♡♥❤💕💖';
-    const fontSize = 14;
-    let columns = Math.floor(canvas.width / fontSize);
-    let drops = Array(columns).fill(1);
-    window.addEventListener('resize', () => {
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        columns = Math.floor(canvas.width / fontSize); drops = Array(columns).fill(1);
-    });
-    function draw() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.font = fontSize + 'px monospace';
-        for (let i = 0; i < drops.length; i++) {
-            const char = chars[Math.floor(Math.random() * chars.length)];
-            const x = i * fontSize, y = drops[i] * fontSize;
-            ctx.fillStyle = ['#00ff41','#00d4ff','#ff006e','#bc13fe'][Math.floor(Math.random()*4)];
-            ctx.fillText(char, x, y);
-            if (y > canvas.height && Math.random() > 0.975) drops[i] = 0;
-            drops[i]++;
-        }
-    }
-    setInterval(draw, 50);
-}
-JSEOF
-
-cat > js/auth.js << 'JSEOF'
-const bootMessages = [
-    '[ OK ] Initializing LOVEHUB kernel...', '[ OK ] Loading encryption modules...',
-    '[ OK ] Mounting secure filesystem...', '[ OK ] Starting network services...',
-    '[ OK ] Establishing secure tunnel...', '[ OK ] Verifying system integrity...',
-    '[ OK ] Loading user database...', '[ OK ] Decrypting memory banks...',
-    '[ OK ] Initializing AI core (SECTOR)...', '[ OK ] System ready. Awaiting authentication...'
-];
-
-async function bootSequence() {
-    const log = document.getElementById('boot-log');
-    const container = document.getElementById('login-container');
-    const boot = document.querySelector('.boot-sequence');
-    if (!log) return;
-    for (let msg of bootMessages) {
-        await new Promise(r => setTimeout(r, 150));
-        const line = document.createElement('div'); line.textContent = msg;
-        log.appendChild(line);
-    }
-    await new Promise(r => setTimeout(r, 500));
-    if(boot) boot.classList.add('hide');
-    setTimeout(() => { if(boot) boot.style.display='none'; if(container) container.style.display='block'; }, 500);
-}
-
-function updateTime() {
-    const el = document.getElementById('live-time');
-    if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
-}
-setInterval(updateTime, 1000); updateTime();
-
-document.getElementById('login-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const errorEl = document.getElementById('login-error');
-    const btn = e.target.querySelector('button');
-    errorEl.style.display = 'none';
-    btn.disabled = true; btn.innerHTML = '<span class="blink">AUTHENTICATING...</span>';
-    try {
-        const data = await API.login(username, password);
-        if (data.success) {
-            API.setToken(data.token);
-            localStorage.setItem('lovehub_user', JSON.stringify(data.user));
-            btn.innerHTML = '<span style="color:var(--cyber-green)">✓ ACCESS GRANTED</span>';
-            await new Promise(r => setTimeout(r, 800));
-            window.location.href = '/app';
-        }
-    } catch (err) {
-        errorEl.style.display = 'block';
-        btn.disabled = false;
-        btn.innerHTML = '<span class="btn-text">[ AUTHENTICATE ]</span>';
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-    }
-});
-
-if (API.getToken()) window.location.href = '/app';
-document.addEventListener('DOMContentLoaded', bootSequence);
-JSEOF
-
-cat > js/api.js << 'JSEOF'
-const API = {
-    baseUrl: '/api/',
-    getToken() { return localStorage.getItem('lovehub_token'); },
-    setToken(t) { localStorage.setItem('lovehub_token', t); },
-    clearToken() { localStorage.removeItem('lovehub_token'); localStorage.removeItem('lovehub_user'); },
-    async request(endpoint, options = {}) {
-        const headers = { 'Content-Type': 'application/json', ...(this.getToken() ? { 'Authorization': `Bearer ${this.getToken()}` } : {}) };
-        try {
-            const res = await fetch(this.baseUrl + endpoint, { ...options, headers: { ...headers, ...options.headers } });
-            const data = await res.json();
-            if (res.status === 401) { this.clearToken(); window.location.href = '/'; throw new Error('Unauthorized'); }
-            if (!res.ok) throw new Error(data.error || 'Request failed');
-            return data;
-        } catch (err) { console.error('API Error:', err); throw err; }
-    },
-    login(u, p) { return this.request('auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) }); },
-    getMe() { return this.request('auth/me'); },
-    changePassword(o, n) { return this.request('auth/change-password', { method: 'POST', body: JSON.stringify({ old_password: o, new_password: n }) }); },
-    updateProfile(d) { return this.request('profile', { method: 'POST', body: JSON.stringify(d) }); },
-    getChat() { return this.request('chat'); },
-    sendMessage(m) { return this.request('chat', { method: 'POST', body: JSON.stringify({ message: m }) }); },
-    getWishes() { return this.request('wishes'); },
-    addWish(t) { return this.request('wishes', { method: 'POST', body: JSON.stringify({ text: t }) }); },
-    toggleWish(id) { return this.request(`wishes/${id}/toggle`, { method: 'POST' }); },
-    getTimeline() { return this.request('timeline'); },
-    addTimeline(d) { return this.request('timeline', { method: 'POST', body: JSON.stringify(d) }); },
-    getCapsules() { return this.request('capsules'); },
-    addCapsule(d) { return this.request('capsules', { method: 'POST', body: JSON.stringify(d) }); },
-    getMood() { return this.request('mood'); },
-    addMood(d) { return this.request('mood', { method: 'POST', body: JSON.stringify(d) }); },
-    getCycle() { return this.request('cycle'); },
-    updateCycle(d) { return this.request('cycle', { method: 'POST', body: JSON.stringify(d) }); },
-    getGameStats() { return this.request('game-stats'); },
-    updateGameStats(g, r) { return this.request('game-stats', { method: 'POST', body: JSON.stringify({ game: g, result: r }) }); },
-    getMeditation() { return this.request('meditation'); },
-    completeMeditation(m) { return this.request('meditation', { method: 'POST', body: JSON.stringify({ minutes: m }) }); },
-    getTouch() { return this.request('touch'); },
-    updateTouch(s) { return this.request('touch', { method: 'POST', body: JSON.stringify({ seconds: s }) }); },
-    querySector(m) { return this.request('sector', { method: 'POST', body: JSON.stringify({ message: m }) }); },
-    getMemories() { return this.request('memories'); },
-    addMemory(d) { return this.request('memories', { method: 'POST', body: JSON.stringify(d) }); },
-    saveLoveTest(r) { return this.request('love-test', { method: 'POST', body: JSON.stringify({ result_type: r }) }); }
-};
-JSEOF
-
-cat > js/app.js << 'JSEOF'
-const App = {
-    user: null,
-    async init() {
-        if (!API.getToken()) { window.location.href = '/'; return; }
-        try {
-            const data = await API.getMe();
-            this.user = data.user;
-            localStorage.setItem('lovehub_user', JSON.stringify(this.user));
-            document.getElementById('user-name').textContent = this.user.display_name || this.user.username;
-            Chat.init(); Sector.init(); Touch.init(); Games.init(); Memories.init(); Health.init(); Capsule.init(); Wishes.init(); Timeline.init(); Mood.init(); Meditation.init(); LoveTest.init();
-            this.startLoveCounter();
-        } catch (err) { API.clearToken(); window.location.href = '/'; }
-    },
-    switchTab(id) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-        const view = document.getElementById(`view-${id}`);
-        if (view) view.classList.add('active');
-        document.querySelectorAll('.tab-item').forEach(t => { if (t.getAttribute('onclick')?.includes(`'${id}'`)) t.classList.add('active'); });
-        if (id === 'memories') setTimeout(() => Memories.initCanvas(), 100);
-    },
-    startLoveCounter() {
-        const start = new Date('2024-01-01');
-        const update = () => {
-            const diff = Date.now() - start;
-            const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
-            const el = document.getElementById('love-counter');
-            if (el) el.textContent = `${d}:${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-        };
-        update(); setInterval(update, 60000);
-    },
-    openProfile() { Profile.open(); },
-    closeProfile() { document.getElementById('profile-modal').classList.remove('show'); },
-    logout() { if (confirm('خروج از سیستم؟')) { API.clearToken(); window.location.href = '/'; } }
-};
-document.addEventListener('DOMContentLoaded', () => App.init());
-JSEOF
-
-cat > js/profile.js << 'JSEOF'
-const Profile = {
-    open() {
-        const u = App.user;
-        const age = u.birth_date ? this.calcAge(u.birth_date) : '--';
-        document.getElementById('profile-body').innerHTML = `
-            <div class="profile-avatar">${(u.display_name||u.username||'?')[0]}</div>
-            <div class="section-title">> PERSONAL_INFO</div>
-            <div class="profile-field"><label>DISPLAY_NAME:</label><input id="pf-display" value="${u.display_name||''}"></div>
-            <div class="profile-field"><label>NICKNAME:</label><input id="pf-nick" value="${u.nickname||''}"></div>
-            <div class="profile-field"><label>BIRTH_DATE:</label><input type="date" id="pf-birth" value="${u.birth_date||''}"></div>
-            <div class="profile-field"><label>AGE: <span style="color:var(--cyber-yellow)">${age}</span></label></div>
-            <div class="profile-field"><label>GENDER:</label><select id="pf-gender"><option value="">--</option><option value="male" ${u.gender==='male'?'selected':''}>MALE</option><option value="female" ${u.gender==='female'?'selected':''}>FEMALE</option></select></div>
-            <div class="profile-field"><label>HEIGHT (cm):</label><input type="number" id="pf-height" value="${u.height_cm||''}"></div>
-            <div class="profile-field"><label>WEIGHT (kg):</label><input type="number" step="0.1" id="pf-weight" value="${u.weight_kg||''}"></div>
-            <div class="profile-field"><label>BLOOD_TYPE:</label><select id="pf-blood"><option value="">?</option>${['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b=>`<option ${u.blood_type===b?'selected':''}>${b}</option>`).join('')}</select></div>
-            <div class="profile-field"><label>PHONE:</label><input type="tel" id="pf-phone" value="${u.phone||''}"></div>
-            <div class="profile-field"><label>BIO:</label><textarea id="pf-bio" rows="2">${u.bio||''}</textarea></div>
-            <div class="section-title">> SECURITY</div>
-            <div class="profile-field"><label>OLD_PASSWORD:</label><input type="password" id="pf-old-pass"></div>
-            <div class="profile-field"><label>NEW_PASSWORD:</label><input type="password" id="pf-new-pass"></div>
-            <div style="display:flex;gap:8px;margin-top:15px;"><button class="cyber-btn" onclick="Profile.save()" style="flex:1">SAVE</button><button class="cyber-btn pink" onclick="Profile.changePass()" style="flex:1">CHANGE_PASS</button></div>
-        `;
-        document.getElementById('profile-modal').classList.add('show');
-    },
-    calcAge(b) { return Math.floor((Date.now() - new Date(b).getTime()) / (365.25*24*60*60*1000)); },
-    async save() {
-        try {
-            const res = await API.updateProfile({
-                display_name: document.getElementById('pf-display').value,
-                nickname: document.getElementById('pf-nick').value,
-                birth_date: document.getElementById('pf-birth').value || null,
-                gender: document.getElementById('pf-gender').value || null,
-                height_cm: document.getElementById('pf-height').value || null,
-                weight_kg: document.getElementById('pf-weight').value || null,
-                blood_type: document.getElementById('pf-blood').value || null,
-                phone: document.getElementById('pf-phone').value,
-                bio: document.getElementById('pf-bio').value
-            });
-            if(res.success) { App.user=res.user; localStorage.setItem('lovehub_user', JSON.stringify(res.user)); document.getElementById('user-name').textContent = res.user.display_name||res.user.username; alert('✓ Saved'); App.closeProfile(); }
-        } catch(e) { alert('✗ '+e.message); }
-    },
-    async changePass() {
-        const o=document.getElementById('pf-old-pass').value, n=document.getElementById('pf-new-pass').value;
-        if(!o||!n) return alert('هر دو فیلد الزامیست');
-        if(n.length<4) return alert('حداقل ۴ کاراکتر');
-        try { await API.changePassword(o,n); alert('✓ رمز تغییر کرد'); document.getElementById('pf-old-pass').value=''; document.getElementById('pf-new-pass').value=''; }
-        catch(e) { alert('✗ '+e.message); }
-    }
-};
-JSEOF
-
-echo "✅ Core JS files created (Part 2/4)"
-
-
-
 
