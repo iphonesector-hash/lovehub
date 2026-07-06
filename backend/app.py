@@ -1,10 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
-import os
-from datetime import datetime, date
-
+from datetime import datetime, date, timedelta
 from config import Config
 from database import get_db, init_db
 from auth import generate_token, require_auth
@@ -13,9 +10,6 @@ from sector_ai import query_sector
 app = Flask(__name__, static_folder='..', static_url_path='')
 CORS(app)
 
-# ============================================================
-# سرویس فایل‌های استاتیک (HTML, CSS, JS)
-# ============================================================
 @app.route('/')
 def index():
     return send_from_directory('..', 'index.html')
@@ -24,9 +18,6 @@ def index():
 def app_page():
     return send_from_directory('..', 'app.html')
 
-# ============================================================
-# احراز هویت
-# ============================================================
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -43,7 +34,6 @@ def login():
     if not user or not check_password_hash(user['password_hash'], password):
         return jsonify({'error': 'Invalid credentials'}), 401
     
-    # بروزرسانی آخرین ورود
     db = get_db()
     db.execute("UPDATE users SET last_login = ? WHERE id = ?", 
                (datetime.now().isoformat(), user['id']))
@@ -73,10 +63,7 @@ def get_me():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    return jsonify({
-        'success': True,
-        'user': dict(user)
-    })
+    return jsonify({'success': True, 'user': dict(user)})
 
 @app.route('/api/auth/change-password', methods=['POST'])
 @require_auth
@@ -86,25 +73,23 @@ def change_password():
     new_pass = data.get('new_password', '')
     
     if len(new_pass) < 4:
-        return jsonify({'error': 'Password too short (min 4)'}), 400
+        return jsonify({'error': 'Password too short'}), 400
     
     db = get_db()
-    user = db.execute("SELECT password_hash FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    user = db.execute("SELECT password_hash FROM users WHERE id = ?", 
+                     (request.user_id,)).fetchone()
     
     if not check_password_hash(user['password_hash'], old_pass):
         db.close()
         return jsonify({'error': 'Old password incorrect'}), 401
     
-    new_hash = generate_password_hash(new_pass)
-    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, request.user_id))
+    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", 
+              (generate_password_hash(new_pass), request.user_id))
     db.commit()
     db.close()
     
     return jsonify({'success': True, 'message': 'Password changed'})
 
-# ============================================================
-# پروفایل
-# ============================================================
 @app.route('/api/profile', methods=['POST'])
 @require_auth
 def update_profile():
@@ -128,14 +113,12 @@ def update_profile():
     db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", values)
     db.commit()
     
-    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    user = db.execute("SELECT * FROM users WHERE id = ?", 
+                     (request.user_id,)).fetchone()
     db.close()
     
     return jsonify({'success': True, 'user': dict(user)})
 
-# ============================================================
-# چت
-# ============================================================
 @app.route('/api/chat', methods=['GET'])
 @require_auth
 def get_chat():
@@ -155,21 +138,18 @@ def get_chat():
 def send_chat():
     data = request.get_json()
     msg = data.get('message', '').strip()
+    
     if not msg:
         return jsonify({'error': 'Empty message'}), 400
     
     db = get_db()
     c = db.execute("INSERT INTO chat_messages (sender_id, message) VALUES (?, ?)",
-                   (request.user_id, msg))
+                  (request.user_id, msg))
     db.commit()
-    msg_id = c.lastrowid
     db.close()
     
-    return jsonify({'success': True, 'id': msg_id})
+    return jsonify({'success': True, 'id': c.lastrowid})
 
-# ============================================================
-# آرزوها
-# ============================================================
 @app.route('/api/wishes', methods=['GET'])
 @require_auth
 def get_wishes():
@@ -184,12 +164,13 @@ def get_wishes():
 def add_wish():
     data = request.get_json()
     text = data.get('text', '').strip()
+    
     if not text:
         return jsonify({'error': 'Empty text'}), 400
     
     db = get_db()
     db.execute("INSERT INTO wishes (user_id, text) VALUES (?, ?)",
-               (request.user_id, text))
+              (request.user_id, text))
     db.commit()
     db.close()
     return jsonify({'success': True})
@@ -208,9 +189,6 @@ def toggle_wish(wish_id):
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# تایم‌لاین
-# ============================================================
 @app.route('/api/timeline', methods=['GET'])
 @require_auth
 def get_timeline():
@@ -226,14 +204,11 @@ def add_timeline():
     data = request.get_json()
     db = get_db()
     db.execute("INSERT INTO timeline_events (user_id, event_date, title, description) VALUES (?, ?, ?, ?)",
-               (request.user_id, data.get('date'), data.get('title'), data.get('description', '')))
+              (request.user_id, data.get('date'), data.get('title'), data.get('description', '')))
     db.commit()
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# کپسول زمان
-# ============================================================
 @app.route('/api/capsules', methods=['GET'])
 @require_auth
 def get_capsules():
@@ -247,22 +222,13 @@ def get_capsules():
 @require_auth
 def add_capsule():
     data = request.get_json()
-    msg = data.get('message', '').strip()
-    unlock = data.get('unlock_time', '')
-    
-    if not msg or not unlock:
-        return jsonify({'error': 'Missing data'}), 400
-    
     db = get_db()
     db.execute("INSERT INTO capsules (user_id, message, unlock_time) VALUES (?, ?, ?)",
-               (request.user_id, msg, unlock))
+              (request.user_id, data.get('message'), data.get('unlock_time')))
     db.commit()
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# خلق و خو
-# ============================================================
 @app.route('/api/mood', methods=['GET'])
 @require_auth
 def get_mood():
@@ -278,19 +244,17 @@ def add_mood():
     data = request.get_json()
     db = get_db()
     db.execute("INSERT INTO mood_history (user_id, mood, emoji, note) VALUES (?, ?, ?, ?)",
-               (request.user_id, data.get('mood'), data.get('emoji'), data.get('note', '')))
+              (request.user_id, data.get('mood'), data.get('emoji'), data.get('note', '')))
     db.commit()
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# چرخه سلامت
-# ============================================================
 @app.route('/api/cycle', methods=['GET'])
 @require_auth
 def get_cycle():
     db = get_db()
-    cycle = db.execute("SELECT * FROM cycle_data WHERE user_id = ?", (request.user_id,)).fetchone()
+    cycle = db.execute("SELECT * FROM cycle_data WHERE user_id = ?", 
+                      (request.user_id,)).fetchone()
     db.close()
     return jsonify({'cycle': dict(cycle) if cycle else None})
 
@@ -311,14 +275,12 @@ def update_cycle():
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# آمار بازی
-# ============================================================
 @app.route('/api/game-stats', methods=['GET'])
 @require_auth
 def get_game_stats():
     db = get_db()
-    stats = db.execute("SELECT * FROM game_stats WHERE user_id = ?", (request.user_id,)).fetchall()
+    stats = db.execute("SELECT * FROM game_stats WHERE user_id = ?", 
+                      (request.user_id,)).fetchall()
     db.close()
     return jsonify({'stats': [dict(s) for s in stats]})
 
@@ -327,7 +289,7 @@ def get_game_stats():
 def update_game_stats():
     data = request.get_json()
     game = data.get('game')
-    result = data.get('result')  # win, loss, draw
+    result = data.get('result')
     
     if result not in ['win', 'loss', 'draw']:
         return jsonify({'error': 'Invalid result'}), 400
@@ -344,16 +306,18 @@ def update_game_stats():
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# مدیتیشن
-# ============================================================
 @app.route('/api/meditation', methods=['GET'])
 @require_auth
 def get_meditation():
     db = get_db()
-    stats = db.execute("SELECT * FROM meditation_stats WHERE user_id = ?", (request.user_id,)).fetchone()
+    stats = db.execute("SELECT * FROM meditation_stats WHERE user_id = ?", 
+                      (request.user_id,)).fetchone()
     db.close()
-    return jsonify({'stats': dict(stats) if stats else {'sessions': 0, 'total_minutes': 0, 'streak': 0}})
+    return jsonify({
+        'stats': dict(stats) if stats else {
+            'sessions': 0, 'total_minutes': 0, 'streak': 0
+        }
+    })
 
 @app.route('/api/meditation', methods=['POST'])
 @require_auth
@@ -361,35 +325,45 @@ def complete_meditation():
     data = request.get_json()
     minutes = int(data.get('minutes', 0))
     today = date.today().isoformat()
-    yesterday = (date.today() - __import__('datetime').timedelta(days=1)).isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
     
     db = get_db()
-    stats = db.execute("SELECT * FROM meditation_stats WHERE user_id = ?", (request.user_id,)).fetchone()
+    stats = db.execute("SELECT * FROM meditation_stats WHERE user_id = ?", 
+                      (request.user_id,)).fetchone()
     
     if not stats:
-        db.execute("INSERT INTO meditation_stats (user_id, sessions, total_minutes, streak, last_date) VALUES (?, 1, ?, 1, ?)",
-                  (request.user_id, minutes, today))
+        db.execute('''
+            INSERT INTO meditation_stats 
+            (user_id, sessions, total_minutes, streak, last_date) 
+            VALUES (?, 1, ?, 1, ?)
+        ''', (request.user_id, minutes, today))
     else:
         new_streak = stats['streak'] + 1 if stats['last_date'] == yesterday else 1
-        db.execute('''UPDATE meditation_stats 
-                     SET sessions = sessions + 1, total_minutes = total_minutes + ?, 
-                         streak = ?, last_date = ? WHERE user_id = ?''',
-                  (minutes, new_streak, today, request.user_id))
+        db.execute('''
+            UPDATE meditation_stats 
+            SET sessions = sessions + 1, 
+                total_minutes = total_minutes + ?, 
+                streak = ?, 
+                last_date = ? 
+            WHERE user_id = ?
+        ''', (minutes, new_streak, today, request.user_id))
     
     db.commit()
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# لمس
-# ============================================================
 @app.route('/api/touch', methods=['GET'])
 @require_auth
 def get_touch():
     db = get_db()
-    stats = db.execute("SELECT * FROM touch_stats WHERE user_id = ?", (request.user_id,)).fetchone()
+    stats = db.execute("SELECT * FROM touch_stats WHERE user_id = ?", 
+                      (request.user_id,)).fetchone()
     db.close()
-    return jsonify({'stats': dict(stats) if stats else {'touch_count': 0, 'total_seconds': 0}})
+    return jsonify({
+        'stats': dict(stats) if stats else {
+            'touch_count': 0, 'total_seconds': 0
+        }
+    })
 
 @app.route('/api/touch', methods=['POST'])
 @require_auth
@@ -409,9 +383,6 @@ def update_touch():
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# سکتور AI
-# ============================================================
 @app.route('/api/sector', methods=['POST'])
 @require_auth
 def sector_query():
@@ -421,12 +392,9 @@ def sector_query():
     if not message:
         return jsonify({'error': 'Empty message'}), 400
     
-    # دریافت context کاربر
     db = get_db()
     user = db.execute("SELECT display_name, bio, love_language FROM users WHERE id = ?", 
                      (request.user_id,)).fetchone()
-    
-    # دریافت نام پارتنر
     partner = db.execute("SELECT display_name FROM users WHERE id != ? LIMIT 1", 
                         (request.user_id,)).fetchone()
     db.close()
@@ -438,9 +406,6 @@ def sector_query():
     result = query_sector(message, context)
     return jsonify(result)
 
-# ============================================================
-# خاطرات
-# ============================================================
 @app.route('/api/memories', methods=['GET'])
 @require_auth
 def get_memories():
@@ -456,30 +421,24 @@ def add_memory():
     data = request.get_json()
     db = get_db()
     db.execute("INSERT INTO memories (user_id, type, data, caption) VALUES (?, ?, ?, ?)",
-               (request.user_id, data.get('type', 'text'), data.get('data', ''), data.get('caption', '')))
+              (request.user_id, data.get('type', 'text'), data.get('data', ''), data.get('caption', '')))
     db.commit()
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# تست زبان عشق
-# ============================================================
 @app.route('/api/love-test', methods=['POST'])
 @require_auth
 def save_love_test():
     data = request.get_json()
     db = get_db()
     db.execute("INSERT INTO love_test_results (user_id, result_type) VALUES (?, ?)",
-               (request.user_id, data.get('result_type')))
+              (request.user_id, data.get('result_type')))
     db.execute("UPDATE users SET love_language = ? WHERE id = ?",
-               (data.get('result_type'), request.user_id))
+              (data.get('result_type'), request.user_id))
     db.commit()
     db.close()
     return jsonify({'success': True})
 
-# ============================================================
-# اجرای برنامه
-# ============================================================
 if __name__ == '__main__':
     init_db()
     app.run(host='127.0.0.1', port=5000, debug=False)
