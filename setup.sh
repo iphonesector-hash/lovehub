@@ -1029,6 +1029,239 @@ CSSEOF
 
 echo "✅ CSS files created"
 echo "✅ SETUP PART 1 COMPLETE - Continue in next message for JS files"
+# ============================================================
+# JAVASCRIPT - CORE FILES
+# ============================================================
+
+cat > js/matrix.js << 'JSEOF'
+const canvas = document.getElementById('matrix');
+if (canvas) {
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン♡♥❤💕💖';
+    const fontSize = 14;
+    let columns = Math.floor(canvas.width / fontSize);
+    let drops = Array(columns).fill(1);
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        columns = Math.floor(canvas.width / fontSize); drops = Array(columns).fill(1);
+    });
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = fontSize + 'px monospace';
+        for (let i = 0; i < drops.length; i++) {
+            const char = chars[Math.floor(Math.random() * chars.length)];
+            const x = i * fontSize, y = drops[i] * fontSize;
+            ctx.fillStyle = ['#00ff41','#00d4ff','#ff006e','#bc13fe'][Math.floor(Math.random()*4)];
+            ctx.fillText(char, x, y);
+            if (y > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+    }
+    setInterval(draw, 50);
+}
+JSEOF
+
+cat > js/auth.js << 'JSEOF'
+const bootMessages = [
+    '[ OK ] Initializing LOVEHUB kernel...', '[ OK ] Loading encryption modules...',
+    '[ OK ] Mounting secure filesystem...', '[ OK ] Starting network services...',
+    '[ OK ] Establishing secure tunnel...', '[ OK ] Verifying system integrity...',
+    '[ OK ] Loading user database...', '[ OK ] Decrypting memory banks...',
+    '[ OK ] Initializing AI core (SECTOR)...', '[ OK ] System ready. Awaiting authentication...'
+];
+
+async function bootSequence() {
+    const log = document.getElementById('boot-log');
+    const container = document.getElementById('login-container');
+    const boot = document.querySelector('.boot-sequence');
+    if (!log) return;
+    for (let msg of bootMessages) {
+        await new Promise(r => setTimeout(r, 150));
+        const line = document.createElement('div'); line.textContent = msg;
+        log.appendChild(line);
+    }
+    await new Promise(r => setTimeout(r, 500));
+    if(boot) boot.classList.add('hide');
+    setTimeout(() => { if(boot) boot.style.display='none'; if(container) container.style.display='block'; }, 500);
+}
+
+function updateTime() {
+    const el = document.getElementById('live-time');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+}
+setInterval(updateTime, 1000); updateTime();
+
+document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const errorEl = document.getElementById('login-error');
+    const btn = e.target.querySelector('button');
+    errorEl.style.display = 'none';
+    btn.disabled = true; btn.innerHTML = '<span class="blink">AUTHENTICATING...</span>';
+    try {
+        const data = await API.login(username, password);
+        if (data.success) {
+            API.setToken(data.token);
+            localStorage.setItem('lovehub_user', JSON.stringify(data.user));
+            btn.innerHTML = '<span style="color:var(--cyber-green)">✓ ACCESS GRANTED</span>';
+            await new Promise(r => setTimeout(r, 800));
+            window.location.href = '/app';
+        }
+    } catch (err) {
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-text">[ AUTHENTICATE ]</span>';
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    }
+});
+
+if (API.getToken()) window.location.href = '/app';
+document.addEventListener('DOMContentLoaded', bootSequence);
+JSEOF
+
+cat > js/api.js << 'JSEOF'
+const API = {
+    baseUrl: '/api/',
+    getToken() { return localStorage.getItem('lovehub_token'); },
+    setToken(t) { localStorage.setItem('lovehub_token', t); },
+    clearToken() { localStorage.removeItem('lovehub_token'); localStorage.removeItem('lovehub_user'); },
+    async request(endpoint, options = {}) {
+        const headers = { 'Content-Type': 'application/json', ...(this.getToken() ? { 'Authorization': `Bearer ${this.getToken()}` } : {}) };
+        try {
+            const res = await fetch(this.baseUrl + endpoint, { ...options, headers: { ...headers, ...options.headers } });
+            const data = await res.json();
+            if (res.status === 401) { this.clearToken(); window.location.href = '/'; throw new Error('Unauthorized'); }
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        } catch (err) { console.error('API Error:', err); throw err; }
+    },
+    login(u, p) { return this.request('auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) }); },
+    getMe() { return this.request('auth/me'); },
+    changePassword(o, n) { return this.request('auth/change-password', { method: 'POST', body: JSON.stringify({ old_password: o, new_password: n }) }); },
+    updateProfile(d) { return this.request('profile', { method: 'POST', body: JSON.stringify(d) }); },
+    getChat() { return this.request('chat'); },
+    sendMessage(m) { return this.request('chat', { method: 'POST', body: JSON.stringify({ message: m }) }); },
+    getWishes() { return this.request('wishes'); },
+    addWish(t) { return this.request('wishes', { method: 'POST', body: JSON.stringify({ text: t }) }); },
+    toggleWish(id) { return this.request(`wishes/${id}/toggle`, { method: 'POST' }); },
+    getTimeline() { return this.request('timeline'); },
+    addTimeline(d) { return this.request('timeline', { method: 'POST', body: JSON.stringify(d) }); },
+    getCapsules() { return this.request('capsules'); },
+    addCapsule(d) { return this.request('capsules', { method: 'POST', body: JSON.stringify(d) }); },
+    getMood() { return this.request('mood'); },
+    addMood(d) { return this.request('mood', { method: 'POST', body: JSON.stringify(d) }); },
+    getCycle() { return this.request('cycle'); },
+    updateCycle(d) { return this.request('cycle', { method: 'POST', body: JSON.stringify(d) }); },
+    getGameStats() { return this.request('game-stats'); },
+    updateGameStats(g, r) { return this.request('game-stats', { method: 'POST', body: JSON.stringify({ game: g, result: r }) }); },
+    getMeditation() { return this.request('meditation'); },
+    completeMeditation(m) { return this.request('meditation', { method: 'POST', body: JSON.stringify({ minutes: m }) }); },
+    getTouch() { return this.request('touch'); },
+    updateTouch(s) { return this.request('touch', { method: 'POST', body: JSON.stringify({ seconds: s }) }); },
+    querySector(m) { return this.request('sector', { method: 'POST', body: JSON.stringify({ message: m }) }); },
+    getMemories() { return this.request('memories'); },
+    addMemory(d) { return this.request('memories', { method: 'POST', body: JSON.stringify(d) }); },
+    saveLoveTest(r) { return this.request('love-test', { method: 'POST', body: JSON.stringify({ result_type: r }) }); }
+};
+JSEOF
+
+cat > js/app.js << 'JSEOF'
+const App = {
+    user: null,
+    async init() {
+        if (!API.getToken()) { window.location.href = '/'; return; }
+        try {
+            const data = await API.getMe();
+            this.user = data.user;
+            localStorage.setItem('lovehub_user', JSON.stringify(this.user));
+            document.getElementById('user-name').textContent = this.user.display_name || this.user.username;
+            Chat.init(); Sector.init(); Touch.init(); Games.init(); Memories.init(); Health.init(); Capsule.init(); Wishes.init(); Timeline.init(); Mood.init(); Meditation.init(); LoveTest.init();
+            this.startLoveCounter();
+        } catch (err) { API.clearToken(); window.location.href = '/'; }
+    },
+    switchTab(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        const view = document.getElementById(`view-${id}`);
+        if (view) view.classList.add('active');
+        document.querySelectorAll('.tab-item').forEach(t => { if (t.getAttribute('onclick')?.includes(`'${id}'`)) t.classList.add('active'); });
+        if (id === 'memories') setTimeout(() => Memories.initCanvas(), 100);
+    },
+    startLoveCounter() {
+        const start = new Date('2024-01-01');
+        const update = () => {
+            const diff = Date.now() - start;
+            const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
+            const el = document.getElementById('love-counter');
+            if (el) el.textContent = `${d}:${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        };
+        update(); setInterval(update, 60000);
+    },
+    openProfile() { Profile.open(); },
+    closeProfile() { document.getElementById('profile-modal').classList.remove('show'); },
+    logout() { if (confirm('خروج از سیستم؟')) { API.clearToken(); window.location.href = '/'; } }
+};
+document.addEventListener('DOMContentLoaded', () => App.init());
+JSEOF
+
+cat > js/profile.js << 'JSEOF'
+const Profile = {
+    open() {
+        const u = App.user;
+        const age = u.birth_date ? this.calcAge(u.birth_date) : '--';
+        document.getElementById('profile-body').innerHTML = `
+            <div class="profile-avatar">${(u.display_name||u.username||'?')[0]}</div>
+            <div class="section-title">> PERSONAL_INFO</div>
+            <div class="profile-field"><label>DISPLAY_NAME:</label><input id="pf-display" value="${u.display_name||''}"></div>
+            <div class="profile-field"><label>NICKNAME:</label><input id="pf-nick" value="${u.nickname||''}"></div>
+            <div class="profile-field"><label>BIRTH_DATE:</label><input type="date" id="pf-birth" value="${u.birth_date||''}"></div>
+            <div class="profile-field"><label>AGE: <span style="color:var(--cyber-yellow)">${age}</span></label></div>
+            <div class="profile-field"><label>GENDER:</label><select id="pf-gender"><option value="">--</option><option value="male" ${u.gender==='male'?'selected':''}>MALE</option><option value="female" ${u.gender==='female'?'selected':''}>FEMALE</option></select></div>
+            <div class="profile-field"><label>HEIGHT (cm):</label><input type="number" id="pf-height" value="${u.height_cm||''}"></div>
+            <div class="profile-field"><label>WEIGHT (kg):</label><input type="number" step="0.1" id="pf-weight" value="${u.weight_kg||''}"></div>
+            <div class="profile-field"><label>BLOOD_TYPE:</label><select id="pf-blood"><option value="">?</option>${['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b=>`<option ${u.blood_type===b?'selected':''}>${b}</option>`).join('')}</select></div>
+            <div class="profile-field"><label>PHONE:</label><input type="tel" id="pf-phone" value="${u.phone||''}"></div>
+            <div class="profile-field"><label>BIO:</label><textarea id="pf-bio" rows="2">${u.bio||''}</textarea></div>
+            <div class="section-title">> SECURITY</div>
+            <div class="profile-field"><label>OLD_PASSWORD:</label><input type="password" id="pf-old-pass"></div>
+            <div class="profile-field"><label>NEW_PASSWORD:</label><input type="password" id="pf-new-pass"></div>
+            <div style="display:flex;gap:8px;margin-top:15px;"><button class="cyber-btn" onclick="Profile.save()" style="flex:1">SAVE</button><button class="cyber-btn pink" onclick="Profile.changePass()" style="flex:1">CHANGE_PASS</button></div>
+        `;
+        document.getElementById('profile-modal').classList.add('show');
+    },
+    calcAge(b) { return Math.floor((Date.now() - new Date(b).getTime()) / (365.25*24*60*60*1000)); },
+    async save() {
+        try {
+            const res = await API.updateProfile({
+                display_name: document.getElementById('pf-display').value,
+                nickname: document.getElementById('pf-nick').value,
+                birth_date: document.getElementById('pf-birth').value || null,
+                gender: document.getElementById('pf-gender').value || null,
+                height_cm: document.getElementById('pf-height').value || null,
+                weight_kg: document.getElementById('pf-weight').value || null,
+                blood_type: document.getElementById('pf-blood').value || null,
+                phone: document.getElementById('pf-phone').value,
+                bio: document.getElementById('pf-bio').value
+            });
+            if(res.success) { App.user=res.user; localStorage.setItem('lovehub_user', JSON.stringify(res.user)); document.getElementById('user-name').textContent = res.user.display_name||res.user.username; alert('✓ Saved'); App.closeProfile(); }
+        } catch(e) { alert('✗ '+e.message); }
+    },
+    async changePass() {
+        const o=document.getElementById('pf-old-pass').value, n=document.getElementById('pf-new-pass').value;
+        if(!o||!n) return alert('هر دو فیلد الزامیست');
+        if(n.length<4) return alert('حداقل ۴ کاراکتر');
+        try { await API.changePassword(o,n); alert('✓ رمز تغییر کرد'); document.getElementById('pf-old-pass').value=''; document.getElementById('pf-new-pass').value=''; }
+        catch(e) { alert('✗ '+e.message); }
+    }
+};
+JSEOF
+
+echo "✅ Core JS files created (Part 2/4)"
+
 
 
 
