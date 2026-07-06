@@ -1,19 +1,15 @@
 import requests
+import random
 from config import Config
 
 def query_sector(message, user_context=None):
-    """ارسال پیام به Groq API"""
-    
     if not Config.GROQ_API_KEY:
-        return rule_based_response(message)
+        return {'reply': rule_based_response(message), 'source': 'rule-based'}
     
-    system_prompt = """تو سکتور هستی، دستیار هوشمند عشق برای یک زوج.
-لحن صمیمی، عاشقانه و حمایتگر دار. به فارسی پاسخ بده.
-از ایموجی استفاده کن. پاسخ‌ها کوتاه و کاربردی باشن (حداکثر ۳ جمله).
-اگه می‌تونی بر اساس اطلاعات رابطه پیشنهاد بده."""
+    system_prompt = "تو سکتور هستی، دستیار هوشمند عشق برای یک زوج. لحن صمیمی و عاشقانه و حمایتگر دار. به فارسی پاسخ بده. از ایموجی استفاده کن. پاسخ‌ها کوتاه و کاربردی باشن (حداکثر ۳ جمله)."
     
     if user_context:
-        system_prompt += f"\n\nاطلاعات کاربر: {user_context}"
+        system_prompt += f"\nاطلاعات: {user_context}"
     
     try:
         response = requests.post(
@@ -40,34 +36,36 @@ def query_sector(message, user_context=None):
                 'reply': data['choices'][0]['message']['content'],
                 'source': 'groq'
             }
-        else:
-            return {
-                'reply': rule_based_response(message),
-                'source': 'rule-based-fallback'
-            }
     except Exception as e:
-        print(f"Groq API error: {e}")
-        return {
-            'reply': rule_based_response(message),
-            'source': 'rule-based-fallback'
-        }
+        print(f"Groq error: {e}")
+    
+    return {'reply': rule_based_response(message), 'source': 'rule-based'}
 
 def rule_based_response(msg):
-    """پاسخ rule-based در صورت نبود API"""
     msg_lower = msg.lower()
     
     rules = [
-        (['سلام', 'هی', 'درود'], ['سلام عشقم! 🌹 چطور می‌تونم کمکتون کنم؟', 'درود بر شما دو عزیز! 💕']),
-        (['دوستت', 'عاشق', 'دلم تنگ'], ['💕 عشق شما خاصه! یه پیام صوتی عاشقانه بفرست معجزه می‌کنه!', '🌹 پیشنهاد: امروز یه سورپرایز کوچیک آماده کن!']),
-        (['ناراحت', 'غمگین', 'خسته'], ['💙 نگران نباش، یه بغل طولانی همه چیز رو بهتر می‌کنه!', '🤗 موزیک آرام‌بخش بذارید و با هم حرف بزنید.']),
-        (['قرار', 'ایده', 'پیشنهاد'], ['🎬 قرار سینمایی خانگی با پتو و نور شمع!', '🍳 با هم یه غذای جدید درست کنید!', '⭐ شب برید پشت‌بوم و ستاره‌ها رو بشمارید!']),
-        (['چطور', 'چه کار'], ['💡 یه نامه عاشقانه بنویس و فردا بده!', '🎵 پلی‌لیست مشترک از آهنگ‌های خاطره‌انگیز بساز!'])
+        (['سلام', 'هی', 'درود'], 
+         ['سلام عشقم! 🌹 چطور می‌تونم کمکتون کنم؟', 
+          'درود بر شما دو عزیز! 💕']),
+        (['دوستت', 'عاشق', 'دلم تنگ'], 
+         ['💕 عشق شما خاصه! یه پیام صوتی عاشقانه بفرست معجزه می‌کنه!', 
+          '🌹 پیشنهاد: امروز یه سورپرایز کوچیک آماده کن!']),
+        (['ناراحت', 'غمگین', 'خسته'], 
+         ['💙 نگران نباش، یه بغل طولانی همه چیز رو بهتر می‌کنه!', 
+          '🤗 موزیک آرام‌بخش بذارید و با هم حرف بزنید.']),
+        (['قرار', 'ایده', 'پیشنهاد'], 
+         ['🎬 قرار سینمایی خانگی با پتو و نور شمع!', 
+          '🍳 با هم یه غذای جدید درست کنید!', 
+          '⭐ شب برید پشت‌بوم و ستاره‌ها رو بشمارید!']),
+        (['چطور', 'چه کار'], 
+         ['💡 یه نامه عاشقانه بنویس و فردا بده!', 
+          '🎵 پلی‌لیست مشترک از آهنگ‌های خاطره‌انگیز بساز!'])
     ]
     
     for keywords, responses in rules:
         for kw in keywords:
             if kw in msg_lower:
-                import random
                 return random.choice(responses)
     
     defaults = [
@@ -75,6 +73,5 @@ def rule_based_response(msg):
         '✨ بهترین هدیه، وقت گذروندن با هم هست.',
         '💫 امروز یه خاطره جدید بسازید!'
     ]
-    import random
     return random.choice(defaults)
 
