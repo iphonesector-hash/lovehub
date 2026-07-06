@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LOVEHUB // MAIN TERMINAL</title>
+    <link rel="stylesheet" href="css/cyber.css">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+    
+    <header class="cyber-header">
+        <div class="header-left">
+            <div class="logo-mini">
+                <span class="glitch-small" data-text="LH">LH</span>
+            </div>
+            <div class="user-info">
+                <div class="user-name" id="user-name">LOADING...</div>
+                <div class="user-status">
+                    <span class="status-dot"></span>
+                    <span>SECURE SESSION</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="icon-btn" onclick="App.openProfile()">
+                <span>⚙</span>
+            </button>
+            <button class="icon-btn" onclick="App.logout()">
+                <span>⏻</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- تب ۱: داشبورد -->
+        <div id="view-dashboard" class="view active">
+            <div class="dashboard-grid">
+                <div class="stat-card pink">
+                    <div class="stat-label">LOVE_DURATION</div>
+                    <div class="stat-value" id="love-counter">00:00:00</div>
+                    <div class="stat-sub">DAYS:HH:MM</div>
+                </div>
+                
+                <div class="stat-card cyan">
+                    <div class="stat-label">PARTNER_STATUS</div>
+                    <div class="stat-value" id="partner-status">ONLINE</div>
+                    <div class="stat-sub">LAST_SEEN: NOW</div>
+                </div>
+                
+                <div class="stat-card green">
+                    <div class="stat-label">MESSAGES_TODAY</div>
+                    <div class="stat-value" id="msg-count">0</div>
+                    <div class="stat-sub">CONNECTION_ACTIVE</div>
+                </div>
+                
+                <div class="stat-card purple">
+                    <div class="stat-label">MOOD_INDEX</div>
+                    <div class="stat-value" id="mood-index">😊</div>
+                    <div class="stat-sub">CURRENT_STATE</div>
+                </div>
+            </div>
+            
+            <div class="quick-actions">
+                <div class="section-title">> QUICK_ACCESS</div>
+                <div class="action-grid">
+                    <button class="action-tile" onclick="App.switchTab('chat')">
+                        <span class="tile-icon">💬</span>
+                        <span>CHAT</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('games')">
+                        <span class="tile-icon">🎮</span>
+                        <span>GAMES</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('touch')">
+                        <span class="tile-icon">💓</span>
+                        <span>TOUCH</span>
+                    </button>
+                    <button class="action-tile" onclick="App.switchTab('sector')">
+                        <span class="tile-icon">🔮</span>
+                        <span>SECTOR</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="activity-feed">
+                <div class="section-title">> RECENT_ACTIVITY</div>
+                <div id="activity-list"></div>
+            </div>
+        </div>
+
+        <!-- تب ۲: چت -->
+        <div id="view-chat" class="view">
+            <div class="chat-header">
+                <div class="encrypted-badge">🔒 E2E_ENCRYPTED</div>
+            </div>
+            <div class="chat-stream" id="chat-box"></div>
+            <div class="chat-input-area">
+                <input type="text" class="cyber-input" id="chat-input" placeholder="$ type_message...">
+                <button class="send-btn" onclick="Chat.send()">⏎</button>
+            </div>
+        </div>
+
+        <!-- تب ۳: سکتور -->
+        <div id="view-sector" class="view">
+            <div class="sector-header">
+                <div class="sector-eye" id="sec-eye">
+                    <div class="sector-pupil"></div>
+                </div>
+                <div class="sector-info">
+                    <div class="sector-name">SECTOR AI</div>
+                    <div class="sector-version">v2.0 // ONLINE</div>
+                </div>
+            </div>
+            <div class="chat-stream" id="sector-stream"></div>
+            <div class="chat-input-area">
+                <input type="text" class="cyber-input" id="sec-input" placeholder="$ query_sector...">
+                <button class="send-btn cyan" onclick="Sector.ask()">⏎</button>
+            </div>
+        </div>
+
+        <!-- تب ۴: لمس -->
+        <div id="view-touch" class="view">
+            <div class="touch-container">
+                <div class="touch-title">> HAPTIC_LINK</div>
+                <div class="cyber-heart" id="h-heart" 
+                     onmousedown="Touch.start()" onmouseup="Touch.stop()"
+                     ontouchstart="Touch.start()" ontouchend="Touch.stop()">
+                    <div class="heart-core"></div>
+                    <div class="heart-ring"></div>
+                    <div class="heart-ring ring-2"></div>
+                </div>
+                <svg class="ecg-svg" viewBox="0 0 100 40">
+                    <path class="ecg-path" d="M0,20 L35,20 L38,10 L42,30 L45,4 L49,34 L53,20 L100,20" />
+                </svg>
+                <div class="bpm-display">
+                    <span class="bpm-label">BPM:</span>
+                    <span class="bpm-value" id="bpm-value">72</span>
+                </div>
+                <div class="touch-stats" id="touch-stats"></div>
+            </div>
+        </div>
+
+        <!-- تب ۵: بازی‌ها -->
+        <div id="view-games" class="view">
+            <div class="section-title">> GAME_CENTER</div>
+            <div class="games-grid">
+                <div class="game-card" onclick="Games.open('tod')">
+                    <div class="game-icon">🃏</div>
+                    <div class="game-name">TRUTH_DARE</div>
+                    <div class="game-desc">50+ questions</div>
+                </div>
+                <div class="game-card" onclick="Games.open('tictactoe')">
+                    <div class="game-icon">⭕</div>
+                    <div class="game-name">TIC_TAC_TOE</div>
+                    <div class="game-desc">vs SECTOR AI</div>
+                </div>
+                <div class="game-card" onclick="Games.open('memory')">
+                    <div class="game-icon">🧠</div>
+                    <div class="game-name">MEMORY</div>
+                    <div class="game-desc">find_pairs</div>
+                </div>
+                <div class="game-card" onclick="Games.open('rps')">
+                    <div class="game-icon">✊</div>
+                    <div class="game-name">RPS</div>
+                    <div class="game-desc">rock_paper_scissors</div>
+                </div>
+                <div class="game-card" onclick="Games.open('reaction')">
+                    <div class="game-icon">⚡</div>
+                    <div class="game-name">REFLEX</div>
+                    <div class="game-desc">reaction_time</div>
+                </div>
+                <div class="game-card" onclick="Games.open('guess')">
+                    <div class="game-icon">🎯</div>
+                    <div class="game-name">GUESS_NUM</div>
+                    <div class="game-desc">1-100</div>
+                </div>
+                <div class="game-card" onclick="Games.open('dice')">
+                    <div class="game-icon">🎲</div>
+                    <div class="game-name">DICE</div>
+                    <div class="game-desc">lucky_roll</div>
+                </div>
+                <div class="game-card" onclick="Games.open('2048')">
+                    <div class="game-icon">🔢</div>
+                    <div class="game-name">2048</div>
+                    <div class="game-desc">merge_tiles</div>
+                </div>
+            </div>
+            <div class="game-stats-panel">
+                <div class="section-title">> PLAYER_STATS</div>
+                <div id="game-stats-content"></div>
+            </div>
+        </div>
+
+        <!-- تب ۶: خاطرات -->
+        <div id="view-memories" class="view">
+            <div class="section-title">> MEMORY_ARCHIVE</div>
+            <div class="memories-grid" id="media-grid"></div>
+            <button class="cyber-btn" onclick="Memories.add()">+ ADD_MEMORY</button>
+            
+            <div class="section-title" style="margin-top:20px;">> DRAWING_PAD</div>
+            <div class="canvas-area">
+                <canvas id="paintCanvas"></canvas>
+            </div>
+            <div class="canvas-controls">
+                <button class="cyber-btn small" onclick="Memories.clearCanvas()">CLEAR</button>
+                <button class="cyber-btn small cyan" onclick="Memories.saveCanvas()">SAVE</button>
+            </div>
+        </div>
+
+        <!-- تب ۷: سلامت -->
+        <div id="view-health" class="view">
+            <div class="health-card">
+                <div class="health-title">ROSE_CYCLE_TRACKER</div>
+                <div class="rose-icon">🌹</div>
+                <div class="health-value" id="days-until">--</div>
+                <div class="health-phase" id="current-phase">LOADING...</div>
+                <button class="cyber-btn small" onclick="Health.updateCycle()">UPDATE</button>
+            </div>
+            <div class="health-suggestion" id="sector-suggestion"></div>
+            
+            <div class="section-title" style="margin-top:20px;">> BODY_METRICS</div>
+            <div class="metrics-grid" id="body-metrics"></div>
+        </div>
+
+        <!-- تب ۸: کپسول -->
+        <div id="view-capsule" class="view">
+            <div class="section-title">> TIME_CAPSULE</div>
+            <div class="capsule-main">
+                <div class="capsule-icon">💝</div>
+                <div id="capsule-status"></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="capsule-progress"></div>
+                </div>
+            </div>
+            <div class="capsule-form">
+                <textarea class="cyber-input" id="capsule-message" placeholder="$ write_to_future..."></textarea>
+                <input type="date" class="cyber-input" id="capsule-date">
+                <button class="cyber-btn" onclick="Capsule.save()">SEAL_CAPSULE</button>
+            </div>
+            <div id="capsule-list"></div>
+        </div>
+
+        <!-- تب ۹: آرزوها -->
+        <div id="view-wishes" class="view">
+            <div class="section-title">> BUCKET_LIST</div>
+            <div id="wishes-list"></div>
+            <div class="wish-form">
+                <input type="text" class="cyber-input" id="new-wish" placeholder="$ new_wish...">
+                <button class="cyber-btn" onclick="Wishes.add()">+ ADD</button>
+            </div>
+            <div class="wishes-progress" id="wishes-stats"></div>
+        </div>
+
+        <!-- تب ۱۰: تایم‌لاین -->
+        <div id="view-timeline" class="view">
+            <div class="section-title">> TIMELINE_LOG</div>
+            <div id="timeline-list"></div>
+            <button class="cyber-btn" onclick="Timeline.add()">+ ADD_EVENT</button>
+        </div>
+
+        <!-- تب ۱۱: خلق -->
+        <div id="view-mood" class="view">
+            <div class="section-title">> MOOD_TRACKER</div>
+            <div class="mood-grid">
+                <div class="mood-btn" onclick="Mood.select(this,'عالی','😍')">😍</div>
+                <div class="mood-btn" onclick="Mood.select(this,'خوب','😊')">😊</div>
+                <div class="mood-btn" onclick="Mood.select(this,'معمولی','😐')">😐</div>
+                <div class="mood-btn" onclick="Mood.select(this,'ناراحت','😔')">😔</div>
+                <div class="mood-btn" onclick="Mood.select(this,'عصبانی','😠')">😠</div>
+            </div>
+            <div class="mood-stats" id="mood-stats"></div>
+            <div class="mood-suggestion" id="mood-suggestion" style="display:none;"></div>
+        </div>
+
+        <!-- تب ۱۲: تست -->
+        <div id="view-lovetest" class="view">
+            <div class="section-title">> LOVE_LANGUAGE_TEST</div>
+            <div class="test-card">
+                <div id="test-question"></div>
+                <div id="test-options"></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="test-progress"></div>
+                </div>
+                <div id="test-counter"></div>
+            </div>
+            <div id="test-result" style="display:none;"></div>
+        </div>
+
+        <!-- تب ۱۳: مدیتیشن -->
+        <div id="view-meditation" class="view">
+            <div class="section-title">> MEDITATION_MODULE</div>
+            <div class="meditation-circle" id="meditation-circle">🌊</div>
+            <div class="meditation-status" id="meditation-status">READY</div>
+            <div class="meditation-timer" id="meditation-timer">05:00</div>
+            <div class="meditation-controls">
+                <button class="cyber-btn small" onclick="Meditation.start(5)">5 MIN</button>
+                <button class="cyber-btn small cyan" onclick="Meditation.start(10)">10 MIN</button>
+                <button class="cyber-btn small pink" onclick="Meditation.start(15)">15 MIN</button>
+                <button class="cyber-btn small" onclick="Meditation.stop()">STOP</button>
+            </div>
+            <div class="meditation-stats" id="meditation-stats"></div>
+        </div>
+    </div>
+
+    <!-- پروفایل -->
+    <div class="modal" id="profile-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="section-title">> USER_PROFILE</div>
+                <button class="close-btn" onclick="App.closeProfile()">×</button>
+            </div>
+            <div class="modal-body" id="profile-body"></div>
+        </div>
+    </div>
+
+    <!-- پاپ‌آپ بازی -->
+    <div class="game-overlay" id="game-overlay">
+        <div class="game-header">
+            <div id="game-title"></div>
+            <button class="close-btn" onclick="Games.close()">×</button>
+        </div>
+        <div id="game-content"></div>
+        <div id="game-score"></div>
+    </div>
+
+    <!-- پاپ‌آپ جرئت حقیقت -->
+    <div class="game-overlay" id="tod-overlay">
+        <div class="game-header">
+            <div>FORTUNE_SPINNER</div>
+            <button class="close-btn" onclick="TruthDare.close()">×</button>
+        </div>
+        <div class="bottle-circle">
+            <div class="lbl-p lbl-top">POURYA 💙</div>
+            <div class="bottle-element" id="btl-obj" onclick="TruthDare.spin()"></div>
+            <div class="lbl-p lbl-bottom">SARINA 💖</div>
+        </div>
+        <div id="tod-txt">CLICK_BOTTLE_TO_SPIN</div>
+        <div id="tod-question"></div>
+        <div class="tod-controls">
+            <button class="cyber-btn small" onclick="TruthDare.close()">EXIT</button>
+            <button class="cyber-btn small cyan" onclick="TruthDare.next()">NEXT_Q</button>
+        </div>
+    </div>
+
+    <!-- تب‌بار -->
+    <nav class="cyber-tabbar">
+        <div class="tab-item active" onclick="App.switchTab('dashboard')">
+            <span class="tab-icon">⌂</span><span>HOME</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('chat')">
+            <span class="tab-icon">💬</span><span>CHAT</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('sector')">
+            <span class="tab-icon">🔮</span><span>AI</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('games')">
+            <span class="tab-icon">🎮</span><span>PLAY</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('memories')">
+            <span class="tab-icon">📸</span><span>MEM</span>
+        </div>
+    </nav>
+    <nav class="cyber-tabbar secondary">
+        <div class="tab-item" onclick="App.switchTab('touch')">
+            <span class="tab-icon">💓</span><span>TOUCH</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('health')">
+            <span class="tab-icon">🌹</span><span>HEALTH</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('capsule')">
+            <span class="tab-icon">⏰</span><span>CAPSULE</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('wishes')">
+            <span class="tab-icon">🌟</span><span>WISHES</span>
+        </div>
+        <div class="tab-item" onclick="App.switchTab('mood')">
+            <span class="tab-icon">😊</span><span>MOOD</span>
+        </div>
+    </nav>
+
+    <script src="js/api.js"></script>
+    <script src="js/matrix.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/sector.js"></script>
+    <script src="js/touch.js"></script>
+    <script src="js/games.js"></script>
+    <script src="js/memories.js"></script>
+    <script src="js/health.js"></script>
+    <script src="js/capsule.js"></script>
+    <script src="js/wishes.js"></script>
+    <script src="js/timeline.js"></script>
+    <script src="js/mood.js"></script>
+    <script src="js/meditation.js"></script>
+    <script src="js/lovetest.js"></script>
+</body>
+</html>
+
