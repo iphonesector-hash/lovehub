@@ -5,7 +5,7 @@ class Config:
     DATA_DIR = os.path.join(os.path.dirname(BASE_DIR), 'data')
     DB_PATH = os.path.join(DATA_DIR, 'lovehub.db')
 
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'CHANGE_THIS_SECRET_KEY_2026_LOVEHUB_XYZ')
+    SECRET_KEY = 'peyman12345'
     JWT_ALGORITHM = 'HS256'
     JWT_EXPIRY_DAYS = 30
     
